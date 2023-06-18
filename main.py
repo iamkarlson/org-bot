@@ -1,27 +1,12 @@
 import json
 
 import functions_framework
+from telegram import Update, Bot
 from flask import Request, abort
+import os
 
-class TelegramMessage:
-    """
-    Standard telegram message model.
-    Example json:
-    {
-        "message_id": 1,
-        "from_user": "user",
-        "date": 123456789,
-        "chat_id": 123456789,
-        "text": "Hello, World!"
-    }
-    """
-
-    def __init__(self, message_id: int, from_user: str, date: int, chat_id: int, text: str):
-        self.message_id = message_id
-        self.from_user = from_user
-        self.date = date
-        self.chat_id = chat_id
-        self.text = text
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+bot = Bot(token=BOT_TOKEN)
 
 
 def handle_message(message):
@@ -42,11 +27,13 @@ def handle(request: Request):
     """
     # when get is called, automatically register webhook to telegram using bot token from secret
     if request.method == "GET":
-        return "Webhook registered"
+        # get bot info from "https://api.telegram.org/{BOT_TOKEN}/getMe"
+        bot_info = bot.get_me()
+        return json.dumps(bot_info.__dict__)
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
-        message = TelegramMessage(**request.get_json())
-        return handle_message(message)
+        update_message = Update.de_json(request.get_json(), bot)
+        return handle_message(update_message)
 
     # Unprocessable entity
     abort(422)
