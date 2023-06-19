@@ -1,4 +1,5 @@
 import json
+from pprint import pprint
 
 import functions_framework
 from telegram import Update, Bot
@@ -13,6 +14,7 @@ def handle_message(message):
     """
     Command handler for telegram bot.
     """
+    pprint(message)
     if message.text == "/start":
         return "Hello, World!"
     else:
@@ -29,7 +31,9 @@ def handle(request: Request):
     if request.method == "GET":
         # get bot info from "https://api.telegram.org/{BOT_TOKEN}/getMe"
         bot_info = bot.get_me()
-        return json.dumps(bot_info.__dict__)
+        # serializing bot object to json
+
+        return json.dumps(bot_info.to_dict())
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
         update_message = Update.de_json(request.get_json(), bot)
