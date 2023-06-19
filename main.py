@@ -30,9 +30,10 @@ def handle(request: Request):
     # when get is called, automatically register webhook to telegram using bot token from secret
     if request.method == "GET":
         # get bot info from "https://api.telegram.org/{BOT_TOKEN}/getMe"
-        bot_info = bot.get_me()
         # serializing bot object to json
-
+        if bool(request.args.get("webhook", False)):
+            return bot.get_webhook_info().to_json()
+        bot_info = bot.get_me()
         return json.dumps(bot_info.to_dict())
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
