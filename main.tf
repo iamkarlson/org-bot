@@ -6,6 +6,10 @@ terraform {
     }
   }
 }
+provider "google" {
+  project = "org-bot-389717"
+  region  = "europe-west1"
+}
 
 resource "random_id" "default" {
   byte_length = 8
@@ -30,8 +34,8 @@ resource "google_storage_bucket_object" "object" {
 
 resource "google_cloudfunctions2_function" "default" {
   name        = "org-bot"
-  location    = "europe-west1"
   description = "iamkarlson brain bot"
+  location = "europe-west1"
 
   build_config {
     runtime     = "python311"
