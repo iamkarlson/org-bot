@@ -163,3 +163,5 @@ cython_debug/
 prod.env.yaml
 .autoenv.zsh
 .autoenv
+
+.terraform/
