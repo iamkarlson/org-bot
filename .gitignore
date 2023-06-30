@@ -165,3 +165,4 @@ prod.env.yaml
 .autoenv
 
 .terraform/
+/bot_token.txt

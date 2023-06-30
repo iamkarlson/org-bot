@@ -6,6 +6,7 @@ terraform {
     }
   }
 }
+
 provider "google" {
   project = "org-bot-389717"
   region  = "europe-west1"
@@ -26,6 +27,7 @@ data "archive_file" "default" {
   output_path = "/tmp/function-source.zip"
   source_dir  = "src/"
 }
+
 resource "google_storage_bucket_object" "object" {
   name   = "function-source.zip"
   bucket = google_storage_bucket.default.name
@@ -36,7 +38,6 @@ resource "google_cloudfunctions2_function" "default" {
   name        = "brain-bot"
   description = "iamkarlson brain bot"
   location = "europe-west1"
-
   build_config {
     runtime     = "python311"
     entry_point = "handle" # Set the entry point
@@ -52,7 +53,18 @@ resource "google_cloudfunctions2_function" "default" {
     max_instance_count = 1
     available_memory   = "256M"
     timeout_seconds    = 60
+    ingress_settings   = "ALLOW_ALL"
+    environment_variables = {
+      BOT_TOKEN = file("${path.module}/bot_token.txt")
+    }
   }
+}
+resource "google_cloudfunctions_function_iam_binding" "binding" {
+  cloud_function = google_cloudfunctions2_function.default.name
+  role = "roles/cloudfunctions.invoker"
+  members = [
+    "allUsers",
+  ]
 }
 
 output "function_uri" {

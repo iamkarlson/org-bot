@@ -1,19 +1,15 @@
+import os
 from pprint import pprint
 
 import functions_framework
-from telegram import Update, Bot, Message
 from flask import Request, abort
+from telegram import Bot, Update, Message
 
 from commands import commands
-
-import os
-
-from telegram import Bot
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
 
-webhook_url = os.environ["WEBHOOK_URL"]
 
 def send_back(message: Message, text):
     """
@@ -22,10 +18,7 @@ def send_back(message: Message, text):
     :param text:
     :return:
     """
-    bot.send_message(
-        chat_id=message.chat_id,
-        text=text
-    )
+    bot.send_message(chat_id=message.chat_id, text=text)
 
 
 def handle_message(message: Message):
@@ -70,6 +63,8 @@ def handle(request: Request):
     Incoming telegram webhook handler for a GCP Cloud Function.
     When request is received, body is parsed into standard telegram message model, and then forwarded to command handler.
     """
+    if request.method == "GET":
+        return {"statusCode": 200}
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
         update_message = Update.de_json(request.get_json(), bot)
