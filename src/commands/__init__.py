@@ -1,6 +1,6 @@
-from commands.start import command_start
-from commands.webhook import command_webhook
-from commands.info import command_info
+from .start import command_start
+from .webhook import command_webhook
+from .info import command_info
 
 commands = {
     "/start": command_start,

@@ -33,7 +33,7 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "default" {
-  name        = "org-bot"
+  name        = "brain-bot"
   description = "iamkarlson brain bot"
   location = "europe-west1"
 

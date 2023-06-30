@@ -3,15 +3,17 @@ from pprint import pprint
 import functions_framework
 from telegram import Update, Bot, Message
 from flask import Request, abort
-import os
 
 from commands import commands
+
+import os
+
+from telegram import Bot
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
 
 webhook_url = os.environ["WEBHOOK_URL"]
-
 
 def send_back(message: Message, text):
     """
