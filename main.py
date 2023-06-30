@@ -1,10 +1,11 @@
-import json
 from pprint import pprint
 
 import functions_framework
 from telegram import Update, Bot, Message
 from flask import Request, abort
 import os
+
+from commands import commands
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
@@ -27,22 +28,38 @@ def send_back(message: Message, text):
 
 def handle_message(message: Message):
     """
+    Handles incoming telegram message.
+    :param message: incoming telegram message
+    :return:
+    """
+    response = process_message(message)
+    if response:
+        send_back(message, response)
+    else:
+        send_back(message, "I don't understand")
+
+
+def process_message(message: Message):
+    """
     Command handler for telegram bot.
     """
     pprint(message)
-    if message.text == "/start":
-        send_back(message, "Hello brain!")
-    elif message.text == "/webhook":
-        register_webhook = bot.set_webhook(webhook_url)
-        if register_webhook:
-            send_back(message, bot.get_webhook_info().to_json())
+
+    # Check if the message is a command
+    if message.text.startswith("/"):
+        command_text = message.text.split('@')[0]  # Split command and bot's name
+        command = commands.get(command_text)
+        if command:
+            return command(message)
         else:
-            send_back(message, "Failed to register webhook")
-    elif message.text == "/info":
-        bot_info = bot.get_me()
-        send_back(message, json.dumps(bot_info.to_dict()))
+            return "Unrecognized command"
     else:
-        send_back(message, message.to_json())
+        return process_non_command(message)
+
+
+def process_non_command(message: Message):
+    # Your code here to process non-command messages
+    return message.to_json()
 
 
 @functions_framework.http
