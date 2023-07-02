@@ -1,7 +1,7 @@
 
 variable "project" {
   type    = string
-  default = "org-bot-333333"
+  default = "org-bot-123456"
 }
 
 variable "region" {
@@ -11,7 +11,7 @@ variable "region" {
 
 variable "name" {
   type    = string
-  default = "yyyyy-bot"
+  default = "org-bot"
 }
 
 
