@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "google" {
-  project = "my-project-123456"
+  project = "org-bot-389717"
   region  = "europe-west1"
 }
 
@@ -35,8 +35,8 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "default" {
-  name        = "my-bot"
-  description = "my function bot"
+  name        = "brain-bot"
+  description = "iamkarlson brain bot"
   location    = "europe-west1"
   build_config {
     runtime     = "python311"
