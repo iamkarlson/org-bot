@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "google" {
-  project = "org-bot-389717"
+  project = "my-project-123456"
   region  = "europe-west1"
 }
 
@@ -35,9 +35,9 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "default" {
-  name        = "brain-bot"
-  description = "iamkarlson brain bot"
-  location = "europe-west1"
+  name        = "my-bot"
+  description = "my function bot"
+  location    = "europe-west1"
   build_config {
     runtime     = "python311"
     entry_point = "handle" # Set the entry point
@@ -50,22 +50,28 @@ resource "google_cloudfunctions2_function" "default" {
   }
 
   service_config {
-    max_instance_count = 1
-    available_memory   = "256M"
-    timeout_seconds    = 60
-    ingress_settings   = "ALLOW_ALL"
+    max_instance_count    = 1
+    available_memory      = "256M"
+    timeout_seconds       = 60
+    ingress_settings      = "ALLOW_ALL"
     environment_variables = {
       BOT_TOKEN = file("${path.module}/bot_token.txt")
     }
   }
 }
-resource "google_cloudfunctions_function_iam_binding" "binding" {
+
+
+resource "google_cloudfunctions2_function_iam_member" "v2invoker" {
+  depends_on = [google_cloudfunctions2_function.default]
+
+  project        = google_cloudfunctions2_function.default.project
   cloud_function = google_cloudfunctions2_function.default.name
-  role = "roles/cloudfunctions.invoker"
-  members = [
-    "allUsers",
-  ]
+  location       = google_cloudfunctions2_function.default.location
+
+  role   = "roles/cloudfunctions.invoker"
+  member = "allUsers"
 }
+
 
 output "function_uri" {
   value = google_cloudfunctions2_function.default.service_config[0].uri
