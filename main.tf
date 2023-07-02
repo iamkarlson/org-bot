@@ -8,8 +8,8 @@ terraform {
 }
 
 provider "google" {
-  project = "org-bot-389717"
-  region  = "europe-west1"
+  project = var.project
+  region  = var.region
 }
 
 resource "random_id" "default" {
@@ -18,7 +18,7 @@ resource "random_id" "default" {
 
 resource "google_storage_bucket" "default" {
   name                        = "${random_id.default.hex}-gcf-source" # Every bucket name must be globally unique
-  location                    = "EUROPE-WEST1"
+  location                    = var.region
   uniform_bucket_level_access = true
 }
 
@@ -34,10 +34,12 @@ resource "google_storage_bucket_object" "object" {
   source = data.archive_file.default.output_path # Add path to the zipped function source code
 }
 
-resource "google_cloudfunctions2_function" "default" {
-  name        = "brain-bot"
-  description = "iamkarlson brain bot"
-  location    = "europe-west1"
+resource "google_cloudfunctions2_function" "bot" {
+  name        = var.name
+  description = var.description
+
+  location = var.region
+
   build_config {
     runtime     = "python311"
     entry_point = "handle" # Set the entry point
@@ -62,17 +64,27 @@ resource "google_cloudfunctions2_function" "default" {
 
 
 resource "google_cloudfunctions2_function_iam_member" "v2invoker" {
-  depends_on = [google_cloudfunctions2_function.default]
+  depends_on = [google_cloudfunctions2_function.bot]
 
-  project        = google_cloudfunctions2_function.default.project
-  cloud_function = google_cloudfunctions2_function.default.name
-  location       = google_cloudfunctions2_function.default.location
+  project        = google_cloudfunctions2_function.bot.project
+  cloud_function = google_cloudfunctions2_function.bot.name
+  location       = google_cloudfunctions2_function.bot.location
 
   role   = "roles/cloudfunctions.invoker"
   member = "allUsers"
 }
 
+resource "google_cloudfunctions2_function_iam_binding" "binding" {
+  depends_on = [google_cloudfunctions2_function.bot]
+
+  project        = google_cloudfunctions2_function.bot.project
+  location       = google_cloudfunctions2_function.bot.location
+  cloud_function = google_cloudfunctions2_function.bot.name
+  role           = "roles/cloudfunctions.invoker"
+  members        = ["allUsers"]
+}
+
 
 output "function_uri" {
-  value = google_cloudfunctions2_function.default.service_config[0].uri
+  value = google_cloudfunctions2_function.bot.service_config[0].uri
 }
