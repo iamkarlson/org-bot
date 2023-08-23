@@ -9,7 +9,6 @@ with open("bot_token.txt") as file:
     bot = Bot(token=BOT_TOKEN)
 
 
-
 def command_webhook(webhook_url: str):
     if not webhook_url:
         return "Please provide a webhook url"
@@ -22,5 +21,4 @@ def command_webhook(webhook_url: str):
 
 # using defopt package to parse command line arguments
 if __name__ == "__main__":
-
     defopt.run(command_webhook)

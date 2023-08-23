@@ -1,4 +1,3 @@
-
 variable "project" {
   type    = string
   default = "org-bot-123456"
