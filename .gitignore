@@ -169,3 +169,4 @@ prod.env.yaml
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
+*.env

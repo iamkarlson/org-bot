@@ -6,6 +6,7 @@ from flask import Request, abort
 from telegram import Bot, Update, Message
 
 from commands import commands
+from src.config import default_action
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
@@ -42,7 +43,7 @@ def process_message(message: Message):
 
     # Check if the message is a command
     if message.text.startswith("/"):
-        command_text = message.text.split('@')[0]  # Split command and bot's name
+        command_text = message.text.split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
             return command(message)
@@ -54,7 +55,8 @@ def process_message(message: Message):
 
 def process_non_command(message: Message):
     # Your code here to process non-command messages
-    return message.to_json()
+    default_action(message)
+    return "Added to journal!"
 
 
 @functions_framework.http

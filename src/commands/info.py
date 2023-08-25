@@ -1,13 +1,17 @@
 import json
-
-from telegram import Message
-
+import logging
 import os
 
-from telegram import Bot
+from telegram import Bot, Message
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-bot = Bot(token=BOT_TOKEN)
+logger = logging.getLogger(__name__)
+
+BOT_TOKEN = os.getenv("BOT_TOKEN", None)
+if BOT_TOKEN:
+    bot = Bot(token=BOT_TOKEN)
+else:
+    logger.error("BOT_TOKEN is not set")
+    bot = None
 
 
 def command_info(message: Message):

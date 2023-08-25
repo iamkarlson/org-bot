@@ -1,2 +1,5 @@
 python-telegram-bot==13.7
 defopt==6.4.0
+
+Flask~=2.3.2
+PyGithub~=1.59.1

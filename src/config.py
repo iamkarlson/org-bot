@@ -12,9 +12,13 @@ commands = {
 
 # Configuration is coming from "JOURNAL_FILE" env variable.
 
-file_path = os.getenv("JOURNAL_FILE", "journal.md")
 github_token = os.getenv("GITHUB_TOKEN", None)
-journal = PostToGitJournal(config={file_path: file_path, github_token: github_token})
+repo_name = os.getenv("GITHUB_REPO", None)
+file_path = os.getenv("JOURNAL_FILE", "journal.md")
+
+journal = PostToGitJournal(
+    github_token=github_token, repo_name=repo_name, file_path=file_path
+)
 post_to_journal = journal.run
 
 default_action = post_to_journal
