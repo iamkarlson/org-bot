@@ -28,10 +28,19 @@ data "archive_file" "default" {
   source_dir  = "src/"
 }
 
+
+locals {
+  source_code_hash = filemd5(data.archive_file.default.output_path)
+  config = yamldecode(file("${path.module}/prod.env.yaml"))
+}
+
+
 resource "google_storage_bucket_object" "object" {
-  name   = "function-source.zip"
+  name   = "function-source-${local.source_code_hash}.zip"
   bucket = google_storage_bucket.default.name
   source = data.archive_file.default.output_path # Add path to the zipped function source code
+
+
 }
 
 resource "google_cloudfunctions2_function" "bot" {
@@ -49,6 +58,7 @@ resource "google_cloudfunctions2_function" "bot" {
         object = google_storage_bucket_object.object.name
       }
     }
+
   }
 
   service_config {
@@ -56,9 +66,7 @@ resource "google_cloudfunctions2_function" "bot" {
     available_memory      = "256M"
     timeout_seconds       = 60
     ingress_settings      = "ALLOW_ALL"
-    environment_variables = {
-      BOT_TOKEN = file("${path.module}/bot_token.txt")
-    }
+    environment_variables = local.config
   }
 }
 

@@ -1,7 +1,6 @@
 import os
 
-from src.commands import *
-from src.commands.post_to_journal import PostToGitJournal
+from .commands import *
 
 commands = {
     "/start": command_start,
@@ -19,6 +18,6 @@ file_path = os.getenv("JOURNAL_FILE", "journal.md")
 journal = PostToGitJournal(
     github_token=github_token, repo_name=repo_name, file_path=file_path
 )
-post_to_journal = journal.run
 
-default_action = post_to_journal
+# Default action is to post to journal
+default_action = journal.run

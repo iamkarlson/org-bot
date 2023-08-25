@@ -40,6 +40,7 @@ class PostToGitJournal:
         commit_message = f"Message {message_id} from chat {chat_id}"
         new_text = self._get_text_from_message(message)
         self._append_text_to_file(new_text, commit_message)
+        return True
 
     def _append_text_to_file(self, new_text, commit_message: str):
         contents = self.repo.get_contents(

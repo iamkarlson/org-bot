@@ -2,4 +2,4 @@ functions-framework==3.4.0
 Flask~=2.3.2
 python-telegram-bot==13.7
 
-github==1.2.7
+PyGithub==1.59.1

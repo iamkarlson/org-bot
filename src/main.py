@@ -1,3 +1,4 @@
+import logging
 import os
 from pprint import pprint
 
@@ -5,11 +6,12 @@ import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 
-from commands import commands
-from src.config import default_action
+from .config import default_action, commands
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
+
+logger = logging.getLogger(__name__)
 
 
 def send_back(message: Message, text):
@@ -55,8 +57,22 @@ def process_message(message: Message):
 
 def process_non_command(message: Message):
     # Your code here to process non-command messages
-    default_action(message)
-    return "Added to journal!"
+    if default_action(message):
+        logger.info("Added to journal!")
+        return "Added to journal!"
+    else:
+        return "Failed to add to journal."
+
+
+authorized_chats = [int(x) for x in os.environ["AUTHORIZED_CHAT_IDS"].split(",")]
+
+
+def auth_check(message: Message):
+    if message.chat_id in authorized_chats:
+        return True
+    logger.info("Unauthorized chat id")
+    send_back(message, "It's not for you!")
+    return False
 
 
 @functions_framework.http
@@ -69,9 +85,13 @@ def handle(request: Request):
         return {"statusCode": 200}
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
-        update_message = Update.de_json(request.get_json(), bot)
-        handle_message(update_message.message)
-        return {"statusCode": 200}
+        try:
+            update_message = Update.de_json(request.get_json(), bot)
+            if auth_check(update_message.message):
+                handle_message(update_message.message)
+            return {"statusCode": 200}
+        except Exception as e:
+            logger.error(e)
 
     # Unprocessable entity
     abort(422)
