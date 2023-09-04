@@ -1,15 +1,18 @@
 import logging
 import os
-from pprint import pprint
 
 import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 
 from .config import default_action, commands
+from .tracing.log import GCPLogger
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
+
+# Set the new logger class
+logging.setLoggerClass(GCPLogger)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +44,6 @@ def process_message(message: Message):
     """
     Command handler for telegram bot.
     """
-    pprint(message)
-
     # Check if the message is a command
     if message.text.startswith("/"):
         command_text = message.text.split("@")[0]  # Split command and bot's name
@@ -86,7 +87,9 @@ def handle(request: Request):
     # when post is called, parse body into standard telegram message model, and then forward to command handler
     if request.method == "POST":
         try:
-            update_message = Update.de_json(request.get_json(), bot)
+            incoming_data = request.get_json()
+            logger.debug(incoming_data)
+            update_message = Update.de_json(incoming_data, bot)
             if auth_check(update_message.message):
                 handle_message(update_message.message)
             return {"statusCode": 200}

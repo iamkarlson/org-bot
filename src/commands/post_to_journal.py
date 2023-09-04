@@ -3,6 +3,7 @@ in this task, I take the message from telegram command, and post it to my journa
 I will use the github api to do this.
 """
 import logging
+from datetime import datetime
 
 from github import Github, Auth
 from telegram import Message
@@ -43,6 +44,15 @@ class PostToGitJournal:
         return True
 
     def _append_text_to_file(self, new_text, commit_message: str):
+        logger.info(
+            "Appending text to file.",
+            extra={
+                "action": "append_text",
+                "commit_message": commit_message,
+                "message": new_text,
+            },
+        )
+
         contents = self.repo.get_contents(
             self.file_path, ref="main"
         )  # Assuming you're working on the 'main' branch
@@ -68,6 +78,7 @@ class PostToGitJournal:
         """
         message_id = message.message_id
         chat_id = message.chat.id
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
         message_link = f"https://t.me/c/{chat_id}/{message_id}"
         message_text = message.text
-        return f"* Log entry: {message_link}\n{message_text}\n"
+        return f"* Entry: [[{message_link}][{now}]]\n{message_text}\n"
