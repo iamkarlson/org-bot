@@ -1,12 +1,11 @@
+import os
 import logging
-
 import defopt
 
 from telegram import Bot
 
-with open("bot_token.txt") as file:
-    BOT_TOKEN = file.readline()
-    bot = Bot(token=BOT_TOKEN)
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+bot = Bot(token=BOT_TOKEN)
 
 logger = logging.getLogger(__name__)
 
