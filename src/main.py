@@ -84,7 +84,7 @@ def handle(request: Request):
     """
     if request.method == "GET":
         return {"statusCode": 200}
-    # when post is called, parse body into standard telegram message model, and then forward to command handler
+
     if request.method == "POST":
         try:
             incoming_data = request.get_json()

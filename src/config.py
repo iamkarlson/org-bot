@@ -1,6 +1,6 @@
 import os
 
-from .commands import *
+from .commands import command_start, command_webhook, command_info, PostToGitJournal
 
 commands = {
     "/start": command_start,

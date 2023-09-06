@@ -170,3 +170,4 @@ prod.env.yaml
 terraform.tfstate
 terraform.tfstate.backup
 *.env
+src/requirements.txt
