@@ -45,7 +45,7 @@ def process_message(message: Message):
     Command handler for telegram bot.
     """
     # Check if the message is a command
-    if message.text.startswith("/"):
+    if message.text and message.text.startswith("/"):
         command_text = message.text.split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
@@ -82,19 +82,20 @@ def handle(request: Request):
     Incoming telegram webhook handler for a GCP Cloud Function.
     When request is received, body is parsed into standard telegram message model, and then forwarded to command handler.
     """
-    if request.method == "GET":
-        return {"statusCode": 200}
+    try:
+        if request.method == "GET":
+            return {"statusCode": 200}
 
-    if request.method == "POST":
-        try:
+
+        if request.method == "POST":
             incoming_data = request.get_json()
             logger.debug(incoming_data)
             update_message = Update.de_json(incoming_data, bot)
             if auth_check(update_message.message):
                 handle_message(update_message.message)
             return {"statusCode": 200}
-        except Exception as e:
-            logger.error(e)
+    except Exception as e:
+        logger.error("Error occured on request", e)
 
     # Unprocessable entity
     abort(422)
