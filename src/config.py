@@ -1,6 +1,12 @@
 import os
 
-from .commands import command_start, command_webhook, command_info, PostToGitJournal
+from .commands import (
+    command_start,
+    command_webhook,
+    command_info,
+    PostToGitJournal,
+    PostToTodo,
+)
 
 commands = {
     "/start": command_start,
@@ -19,5 +25,12 @@ journal = PostToGitJournal(
     github_token=github_token, repo_name=repo_name, file_path=file_path
 )
 
+todo = PostToTodo(github_token=github_token, repo_name=repo_name, file_path="todo.org")
+
 # Default action is to post to journal
 default_action = journal.run
+
+actions = {
+    "journal": {"handler": journal.run, "response": "Added to journal!"},
+    "todo": {"handler": todo.run, "response": "Added to todo list!"},
+}

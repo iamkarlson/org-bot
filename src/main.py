@@ -5,7 +5,7 @@ import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 
-from .config import default_action, commands
+from .config import default_action, commands, actions
 from .tracing.log import GCPLogger
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
@@ -58,10 +58,18 @@ def process_message(message: Message):
 
 def process_non_command(message: Message):
     # Your code here to process non-command messages
-    if default_action(message):
-        logger.info("Added to journal!")
-        return "Added to journal!"
+    text = message.text
+    if text.lower().startswith("todo "):
+        action = "todo"
     else:
+        action = "journal"
+
+    try:
+        if action in actions:
+            actions[action]["handler"](message)
+            return actions[action]["response"]
+    except Exception as e:
+        logger.error(e)
         return "Failed to add to journal."
 
 

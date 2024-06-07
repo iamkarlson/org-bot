@@ -2,6 +2,7 @@
 in this task, I take the message from telegram command, and post it to my journal on github.
 I will use the github api to do this.
 """
+
 import logging
 from datetime import datetime
 
@@ -11,7 +12,7 @@ from telegram import Message
 logger = logging.getLogger(__name__)
 
 
-class PostToGitJournal:
+class BasePostToGitJournal:
     def __init__(self, github_token=None, repo_name=None, file_path=None):
         # Validating config
         self.token = github_token
@@ -29,19 +30,6 @@ class PostToGitJournal:
 
         # Get the specific repo and file
         self.repo = self.client.get_repo(self.repo_name)
-
-    def run(self, message: Message):
-        """
-        Adds a message to the journal on github. File should exists on the github.
-        :param message: incoming telegram message
-        :return: status of operation
-        """
-        message_id = message.message_id
-        chat_id = message.chat.id
-        commit_message = f"Message {message_id} from chat {chat_id}"
-        new_text = self._get_text_from_message(message)
-        self._append_text_to_file(new_text, commit_message)
-        return True
 
     def _append_text_to_file(self, new_text, commit_message: str):
         logger.info(
@@ -68,6 +56,41 @@ class PostToGitJournal:
             sha=contents.sha,
             branch="main",
         )
+
+    def run(self, message: Message):
+        """
+        Adds a message to a file on github. File should exists on the github.
+        :param message: incoming telegram message
+        :return: status of operation
+        """
+        message_id = message.message_id
+        chat_id = message.chat.id
+        commit_message = f"Message {message_id} from chat {chat_id}"
+        new_text = self._get_text_from_message(message)
+        self._append_text_to_file(new_text, commit_message)
+        return True
+
+
+class PostToTodo(BasePostToGitJournal):
+    """
+    This is a simple override to post TODOs to a different file
+    """
+    @staticmethod
+    def _get_text_from_message(message: Message) -> str:
+        """
+        In this method, I'm making an message for my org-mode journal.
+        It includes title "log entry" and link to the message.
+        Text of the message is written in the next line.
+        """
+        message_id = message.message_id
+        chat_id = message.chat.id
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        message_link = f"https://t.me/c/{chat_id}/{message_id}"
+        message_text = message.text
+        return f"* TODO {message_text[:5]}\nCreated at: {now} from {message_link}\n"
+
+
+class PostToGitJournal(BasePostToGitJournal):
 
     @staticmethod
     def _get_text_from_message(message: Message) -> str:

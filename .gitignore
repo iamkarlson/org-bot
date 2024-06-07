@@ -165,7 +165,6 @@ prod.env.yaml
 .autoenv
 
 .terraform/
-/bot_token.txt
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
