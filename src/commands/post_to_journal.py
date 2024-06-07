@@ -75,6 +75,7 @@ class PostToTodo(BasePostToGitJournal):
     """
     This is a simple override to post TODOs to a different file
     """
+
     @staticmethod
     def _get_text_from_message(message: Message) -> str:
         """
@@ -86,8 +87,9 @@ class PostToTodo(BasePostToGitJournal):
         chat_id = message.chat.id
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         message_link = f"https://t.me/c/{chat_id}/{message_id}"
-        message_text = message.text
-        return f"* TODO {message_text[:5]}\nCreated at: {now} from {message_link}\n"
+        # trimming TODO from the message, I may want to use different tags later on
+        message_text = message.text[5:]
+        return f"* TODO {message_text}\nCreated at: {now} from {message_link}\n"
 
 
 class PostToGitJournal(BasePostToGitJournal):
