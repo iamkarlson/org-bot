@@ -5,7 +5,7 @@ import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 
-from .config import default_action, commands, actions
+from .config import commands, actions
 from .tracing.log import GCPLogger
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]

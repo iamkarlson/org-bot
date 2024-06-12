@@ -89,7 +89,7 @@ class PostToTodo(BasePostToGitJournal):
         message_link = f"https://t.me/c/{chat_id}/{message_id}"
         # trimming TODO from the message, I may want to use different tags later on
         message_text = message.text[5:]
-        return f"* TODO {message_text}\nCreated at: {now} from {message_link}\n"
+        return f"* TODO {message_text}\nCreated at: [{now}] from {message_link}\n"
 
 
 class PostToGitJournal(BasePostToGitJournal):
