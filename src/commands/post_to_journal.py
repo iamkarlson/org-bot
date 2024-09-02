@@ -8,6 +8,7 @@ from datetime import datetime
 
 from github import Github, Auth
 from telegram import Message
+from utils import get_text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,9 @@ class BasePostToGitJournal:
         # Get the specific repo and file
         self.repo = self.client.get_repo(self.repo_name)
 
-    def _append_text_to_file(self, new_text, commit_message: str):
+    def _append_text_to_file(
+        self, new_text: str, commit_message: str, filename: str = None
+    ):
         logger.info(
             "Appending text to file.",
             extra={
@@ -47,7 +50,13 @@ class BasePostToGitJournal:
 
         # Decode the content and append new text
         decoded_content = contents.decoded_content.decode("utf-8")
-        new_content = decoded_content + new_text
+        if filename:
+            # [[file:pics/minecraft_sorter_scheme_b.png]]
+            image_text = f"#+attr_html: :width 600px\n[[file:{filename}]]"
+            new_content = "\n".join([decoded_content, new_text, image_text])
+        else:
+            new_content = "\n".join([decoded_content, new_text])
+
         # Update the file in the repository
         self.repo.update_file(
             path=contents.path,
@@ -57,17 +66,31 @@ class BasePostToGitJournal:
             branch="main",
         )
 
-    def run(self, message: Message):
+    def run(self, message: Message, file_path=None):
         """
         Adds a message to a file on github. File should exists on the github.
         :param message: incoming telegram message
         :return: status of operation
         """
+
+        filename = None
+        if file_path:
+            # we got a file. Now it has to be uploaded to the repo as bytes
+            with open(file_path, "rb") as file:
+                file_bytes = file.read()
+                filename = "pics/telegram/" + file_path.split("/")[-1]
+                self.repo.create_file(
+                    path=filename,
+                    message="Image from telegram",
+                    content=file_bytes,
+                    branch="main",
+                )
+
         message_id = message.message_id
         chat_id = message.chat.id
         commit_message = f"Message {message_id} from chat {chat_id}"
-        new_text = self._get_text_from_message(message)
-        self._append_text_to_file(new_text, commit_message)
+        new_text = self._get_org_item(message)
+        self._append_text_to_file(new_text, commit_message, filename)
         return True
 
 
@@ -77,7 +100,7 @@ class PostToTodo(BasePostToGitJournal):
     """
 
     @staticmethod
-    def _get_text_from_message(message: Message) -> str:
+    def _get_org_item(message: Message) -> str:
         """
         In this method, I'm making an message for my org-mode journal.
         It includes title "log entry" and link to the message.
@@ -88,14 +111,15 @@ class PostToTodo(BasePostToGitJournal):
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         message_link = f"https://t.me/c/{chat_id}/{message_id}"
         # trimming TODO from the message, I may want to use different tags later on
-        message_text = message.text[5:]
-        return f"* TODO {message_text}\nCreated at: [{now}] from {message_link}\n"
+        message_text = get_text_from_message(message)
+        message_text = message_text[5:]
+        return f"* TODO {message_text}\nCreated at: [{now}] from {message_link}"
 
 
 class PostToGitJournal(BasePostToGitJournal):
 
     @staticmethod
-    def _get_text_from_message(message: Message) -> str:
+    def _get_org_item(message: Message) -> str:
         """
         In this method, I'm making an message for my org-mode journal.
         It includes title "log entry" and link to the message.
@@ -105,5 +129,5 @@ class PostToGitJournal(BasePostToGitJournal):
         chat_id = message.chat.id
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         message_link = f"https://t.me/c/{chat_id}/{message_id}"
-        message_text = message.text
-        return f"* Entry: [[{message_link}][{now}]]\n{message_text}\n"
+        message_text = get_text_from_message(message)
+        return f"* Entry: [[{message_link}][{now}]]\n{message_text}"

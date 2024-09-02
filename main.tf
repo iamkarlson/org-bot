@@ -31,7 +31,7 @@ data "archive_file" "default" {
 
 locals {
   source_code_hash = filemd5(data.archive_file.default.output_path)
-  config = yamldecode(file("${path.module}/prod.env.yaml"))
+  config           = yamldecode(file("${path.module}/prod.env.yaml"))
 }
 
 

@@ -14,6 +14,8 @@ terraform apply -auto-approve
 
 HOOK_URL=$(terraform output -raw function_uri)
 
+echo "Hook URL: $HOOK_URL"
+
 BOT_NAME=$(terraform output -raw bot_name)
 BOT_REGION=$(terraform output -raw bot_region)
 BOT_PROJECT=$(terraform output -raw bot_project)
@@ -26,4 +28,5 @@ BOT_PROJECT=$(terraform output -raw bot_project)
 
 
  # Registering bot in telegram API
- python -m setup_webhook "$HOOK_URL"
+ echo "python -m setup_webhook \"$BOT_TOKEN\" \"$HOOK_URL\""
+ python -m setup_webhook "$BOT_TOKEN" "$HOOK_URL"

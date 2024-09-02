@@ -1,25 +1,30 @@
+import asyncio
+
+from defopt import run
+from telegram import Bot
 import os
 import logging
-import defopt
 
-from telegram import Bot
-
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-bot = Bot(token=BOT_TOKEN)
+LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
+logging.basicConfig(level=LOGLEVEL)
 
 logger = logging.getLogger(__name__)
 
 
-def command_webhook(webhook_url: str):
-    if not webhook_url:
-        return "Please provide a webhook url"
-    register_webhook = bot.set_webhook(webhook_url)
-    if register_webhook:
-        logger.debug(bot.get_webhook_info().to_json())
-    else:
-        logger.error("Failed to register webhook")
+def command_webhook(bot_token: str, webhook_url: str):
+    async def _inner_command_webhook():
+        bot = Bot(token=bot_token)
+        if not webhook_url:
+            return "Please provide a webhook url"
+        register_webhook = await bot.set_webhook(webhook_url)
+        if register_webhook:
+            webhook = await bot.get_webhook_info()
+            logger.debug(webhook.to_json())
+        else:
+            logger.error("Failed to register webhook")
+
+    asyncio.run(_inner_command_webhook())
 
 
-# using defopt package to parse command line arguments
 if __name__ == "__main__":
-    defopt.run(command_webhook)
+    run(command_webhook)

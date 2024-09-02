@@ -5,8 +5,13 @@ import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 
+import sentry_sdk
+from sentry_sdk.integrations.gcp import GcpIntegration
+
 from .config import commands, actions
 from .tracing.log import GCPLogger
+from .utils import get_text_from_message
+
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
@@ -16,6 +21,20 @@ logging.setLoggerClass(GCPLogger)
 
 logger = logging.getLogger(__name__)
 
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    integrations=[GcpIntegration()],
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for performance monitoring.
+    traces_sample_rate=1.0,
+    # Set profiles_sample_rate to 1.0 to profile 100%
+    # of sampled transactions.
+    # We recommend adjusting this value in production.
+    profiles_sample_rate=1.0,
+)
+
 
 def send_back(message: Message, text):
     """
@@ -24,7 +43,9 @@ def send_back(message: Message, text):
     :param text:
     :return:
     """
-    bot.send_message(chat_id=message.chat_id, text=text)
+    bot.send_message(
+        chat_id=message.chat_id, text=text, reply_to_message_id=message.message_id
+    )
 
 
 def handle_message(message: Message):
@@ -45,35 +66,54 @@ def process_message(message: Message):
     Command handler for telegram bot.
     """
     # Check if the message is a command
-    if message.text.startswith("/"):
+
+    message_text = get_text_from_message(message)
+    if message.photo:
+        # we got a picture.
+        # let's save it to a random file in /tmp
+        # and then pass it command to insert it into the journal
+        random_filename = f"/tmp/{message.photo[-1].file_id}.jpg"
+        with open(random_filename, "wb") as file:
+            file.write(bot.get_file(message.photo[-1].file_id).download_as_bytearray())
+        logger.debug("Photo received")
+        return process_non_command(message, file_path=random_filename)
+    elif message_text.startswith("/"):
         command_text = message.text.split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
-            return command(message)
+            return command(
+                message, file_path=random_filename if message.photo else None
+            )
         else:
             return "Unrecognized command"
     else:
         return process_non_command(message)
 
 
-def process_non_command(message: Message):
+def process_non_command(message: Message, file_path=None):
     # Your code here to process non-command messages
-    text = message.text
-    if text.lower().startswith("todo "):
+    logger.debug("Processing non-command message")
+    logger.debug(message.to_json())
+
+    message_text = get_text_from_message(message)
+    if message_text.lower().startswith("todo "):
         action = "todo"
     else:
         action = "journal"
 
     try:
         if action in actions:
-            actions[action]["handler"](message)
+            actions[action]["handler"](message, file_path=file_path)
             return actions[action]["response"]
     except Exception as e:
         logger.error(e)
         return "Failed to add to journal."
 
 
-authorized_chats = [int(x) for x in os.environ["AUTHORIZED_CHAT_IDS"].split(",")]
+authorized_chats = [
+    int(authorized_chat)
+    for authorized_chat in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
+]
 
 
 def auth_check(message: Message):
@@ -96,13 +136,16 @@ def handle(request: Request):
     if request.method == "POST":
         try:
             incoming_data = request.get_json()
-            logger.debug(incoming_data)
+            logger.debug(f"incoming data: {incoming_data}")
             update_message = Update.de_json(incoming_data, bot)
-            if auth_check(update_message.message):
-                handle_message(update_message.message)
+            message = update_message.message or update_message.edited_message
+            if auth_check(message):
+                handle_message(message)
             return {"statusCode": 200}
         except Exception as e:
-            logger.error(e)
+            sentry_sdk.capture_exception(e)
+            logger.error("Error occurred but message wasn't processed")
+            return {"statusCode": 200}
 
     # Unprocessable entity
     abort(422)
