@@ -10,7 +10,7 @@ variable "region" {
 
 variable "name" {
   type    = string
-  default = "org-bot"
+  default = "brain-bot"
 }
 
 
@@ -19,3 +19,8 @@ variable "description" {
   default = "iamkarlson brain bot"
 }
 
+
+variable "namespace" {
+  type    = string
+  default = "production"
+}

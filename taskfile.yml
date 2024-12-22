@@ -2,11 +2,22 @@
 
 version: '3'
 
-vars:
-  GREETING: Hello, World!
+
+env:
+  ENV: production
+
+dotenv: ['config/{{.ENV}}/secrets.env']
 
 tasks:
   default:
     cmds:
-      - echo "{{.GREETING}}"
+      - echo "env is activated using pyenv"
+    silent: true
+  switch_gcp_project:
+    cmds:
+      - echo "Using GCP account {{.GCP_ACCOUNT}}"
+      - gcloud config set account {{.GCP_ACCOUNT}}
+      - gcloud auth application-default login
+      - gcloud config set project {{.GCP_PROJECT_NAME}}
+      - gcloud auth application-default set-quota-project {{.GCP_PROJECT_NAME}}
     silent: true

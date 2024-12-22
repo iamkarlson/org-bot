@@ -113,7 +113,7 @@ class PostToTodo(BasePostToGitJournal):
         # trimming TODO from the message, I may want to use different tags later on
         message_text = get_text_from_message(message)
         message_text = message_text[5:]
-        return f"* TODO {message_text}\nCreated at: [{now}] from {message_link}"
+        return f"** TODO {message_text}\nCreated at: [{now}] from {message_link}"
 
 
 class PostToGitJournal(BasePostToGitJournal):

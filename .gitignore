@@ -160,7 +160,8 @@ cython_debug/
 .idea/
 
 # Do not push secrets
-prod.env.yaml
+config.yaml
+secrets.env
 .autoenv.zsh
 .autoenv
 

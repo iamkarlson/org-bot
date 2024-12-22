@@ -25,15 +25,16 @@ resource "google_storage_bucket" "default" {
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
-  source_dir  = "src/"
+  source_dir  = abspath("${path.module}/../src/") # Relative to project root
 }
-
 
 locals {
   source_code_hash = filemd5(data.archive_file.default.output_path)
-  config           = yamldecode(file("${path.module}/prod.env.yaml"))
+  config = merge(
+    yamldecode(file(abspath("${path.module}/../config/${var.namespace}/config.yaml"))), # Relative to project root
+    { "NAMESPACE" = var.namespace }
+  )
 }
-
 
 resource "google_storage_bucket_object" "object" {
   name   = "function-source-${local.source_code_hash}.zip"
