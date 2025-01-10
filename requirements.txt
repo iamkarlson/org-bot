@@ -6,4 +6,4 @@ PyGithub==1.59.1
 
 defopt
 
-sentry-sdk==2.2.0
+sentry-sdk==2.8.0
