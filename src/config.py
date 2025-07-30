@@ -31,6 +31,6 @@ todo = PostToTodo(github_token=github_token, repo_name=repo_name, file_path="tod
 default_action = journal.run
 
 actions = {
-    "journal": {"handler": journal.run, "response": "Added to journal!"},
-    "todo": {"handler": todo.run, "response": "Added to todo list!"},
+    "journal": {"function": journal.run, "response": "Added to journal!"},
+    "todo": {"function": todo.run, "response": "Added to todo list!"},
 }

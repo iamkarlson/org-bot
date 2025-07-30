@@ -4,6 +4,6 @@ gcloud functions deploy org-bot \
 --runtime=python311 \
 --region=europe-west1 \
 --source=src/ \
---entry-point=handle \
+--entry-point=http_handle \
 --trigger-http \
 --allow-unauthenticated

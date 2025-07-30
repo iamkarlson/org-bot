@@ -35,6 +35,8 @@ sentry_sdk.init(
     profiles_sample_rate=1.0,
 )
 
+# Chain of calls when bot receives a message from Telegram:
+
 
 def send_back(message: Message, text):
     """
@@ -97,14 +99,14 @@ def process_non_command(message: Message, file_path=None):
 
     message_text = get_text_from_message(message)
     if message_text.lower().startswith("todo "):
-        action = "todo"
+        keyword = "todo"
     else:
-        action = "journal"
+        keyword = "journal"
 
     try:
-        if action in actions:
-            actions[action]["handler"](message, file_path=file_path)
-            return actions[action]["response"]
+        if action_config := actions.get(keyword):
+            action_config["function"](message, file_path=file_path)
+            return action_config["response"]
     except Exception as e:
         logger.error(e)
         return "Failed to add to journal."
@@ -125,7 +127,7 @@ def auth_check(message: Message):
 
 
 @functions_framework.http
-def handle(request: Request):
+def http_handle(request: Request):
     """
     Incoming telegram webhook handler for a GCP Cloud Function.
     When request is received, body is parsed into standard telegram message model, and then forwarded to command handler.
