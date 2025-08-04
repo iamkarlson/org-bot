@@ -74,29 +74,28 @@ def process_message(message: Message):
     """
     Command handler for telegram bot.
     """
-    # Check if the message is a command
-
-    message_text = get_text_from_message(message)
+    # Generate temp file path upfront
+    temp_file_path = None
     if message.photo:
         # we got a picture.
         # let's save it to a random file in /tmp
         # and then pass it command to insert it into the journal
-        random_filename = f"/tmp/{message.photo[-1].file_id}.jpg"
-        with open(random_filename, "wb") as file:
+        temp_file_path = f"/tmp/{message.photo[-1].file_id}.jpg"
+        with open(temp_file_path, "wb") as file:
             file.write(bot.get_file(message.photo[-1].file_id).download_as_bytearray())
         logger.debug("Photo received")
-        return process_non_command(message, file_path=random_filename)
-    elif message_text.startswith("/"):
+
+    message_text = get_text_from_message(message)
+    
+    if message_text.startswith("/"):
         command_text = message.text.split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
-            return command(
-                message, file_path=random_filename if message.photo else None
-            )
+            return command(message)
         else:
             return "Unrecognized command"
     else:
-        return process_non_command(message)
+        return process_non_command(message, file_path=temp_file_path)
 
 
 def process_non_command(message: Message, file_path=None):
@@ -135,7 +134,8 @@ def auth_check(message: Message):
     if message.chat_id in authorized_chats:
         return True
     logger.info("Unauthorized chat id")
-    send_back(message, "It's not for you!")
+    # Note: send_back is async but we can't await here in sync function
+    # This should be handled at the calling level
     return False
 
 
@@ -157,6 +157,9 @@ def http_entrypoint(request: Request):
             if auth_check(message):
                 # Run async function in sync context
                 asyncio.run(handle_message(message))
+            else:
+                # Handle unauthorized case
+                asyncio.run(send_back(message, "It's not for you!"))
             return {"statusCode": 200}
         except Exception as e:
             sentry_sdk.capture_exception(e)
