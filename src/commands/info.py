@@ -14,6 +14,9 @@ else:
     bot = None
 
 
-def command_info(message: Message):
-    bot_info = bot.get_me()
-    return json.dumps(bot_info.to_dict())
+async def command_info(message: Message):
+    response_data = await bot.get_me()
+    response = json.dumps(response_data, indent=1).replace("\\", "\\\\")
+    return f"""```
+{response}
+```"""

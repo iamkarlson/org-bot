@@ -53,7 +53,10 @@ async def send_back(message: Message, text):
     :return:
     """
     await bot.send_message(
-        chat_id=message.chat_id, text=text, reply_to_message_id=message.message_id
+        chat_id=message.chat_id, 
+        text=text,
+        reply_to_message_id=message.message_id,
+        parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting
     )
 
 
@@ -63,14 +66,14 @@ async def handle_message(message: Message):
     :param message: incoming telegram message
     :return:
     """
-    response = process_message(message)
+    response = await process_message(message)
     if response:
         await send_back(message, response)
     else:
         await send_back(message, "I don't understand")
 
 
-def process_message(message: Message):
+async def process_message(message: Message):
     """
     Command handler for telegram bot.
     """
@@ -83,24 +86,29 @@ def process_message(message: Message):
         temp_file_path = f"/tmp/{message.photo[-1].file_id}.jpg"
         with open(temp_file_path, "wb") as file:
             file.write(bot.get_file(message.photo[-1].file_id).download_as_bytearray())
-        logger.debug("Photo received")
+        logger.info("Photo received")
 
     message_text = get_text_from_message(message)
     
     if message_text.startswith("/"):
+        # Commands are always processed, even from ignored chats
         command_text = message.text.split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
-            return command(message)
+            return await command(message)
         else:
             return "Unrecognized command"
     else:
-        return process_non_command(message, file_path=temp_file_path)
+        # For non-command messages, check if chat should be ignored
+        if ignore_check(message):
+            return None  # Don't respond to ignored chats for regular messages
+        else:
+            return process_non_command(message, file_path=temp_file_path)
 
 
 def process_non_command(message: Message, file_path=None):
     # Your code here to process non-command messages
-    logger.debug("Processing non-command message")
+    logger.info("Processing non-command message")
     logger.debug(message.to_json())
 
     message_text = get_text_from_message(message)
@@ -131,11 +139,29 @@ ignored_chats = [
 
 
 def auth_check(message: Message):
+    logger.debug(f"All authorized chats: {authorized_chats}")
     if message.chat_id in authorized_chats:
         return True
-    logger.info("Unauthorized chat id")
+    logger.error("Unauthorized chat id")
+    sentry_sdk.capture_message(
+        f"Unauthorized chat id: {message.chat_id}",
+        level="error"
+    )
     # Note: send_back is async but we can't await here in sync function
     # This should be handled at the calling level
+    return False
+
+
+def ignore_check(message: Message):
+    """
+    Check if message comes from an ignored chat.
+    :param message: incoming telegram message
+    :return: True if chat should be ignored, False otherwise
+    """
+    logger.debug(f"All ignored chats: {ignored_chats}")
+    if message.chat_id in ignored_chats:
+        logger.info(f"Message from ignored chat: {message.chat_id}")
+        return True
     return False
 
 
@@ -154,6 +180,7 @@ def http_entrypoint(request: Request):
             logger.debug(f"incoming data: {incoming_data}")
             update_message = Update.de_json(incoming_data, bot)
             message = update_message.message or update_message.edited_message
+            
             if auth_check(message):
                 # Run async function in sync context
                 asyncio.run(handle_message(message))
@@ -163,7 +190,7 @@ def http_entrypoint(request: Request):
             return {"statusCode": 200}
         except Exception as e:
             sentry_sdk.capture_exception(e)
-            logger.error("Error occurred but message wasn't processed")
+            logger.exception("Error occurred but message wasn't processed")
             return {"statusCode": 200}
 
     # Unprocessable entity
