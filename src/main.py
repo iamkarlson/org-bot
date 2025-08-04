@@ -1,6 +1,7 @@
 import logging
 import os
 
+import asyncio
 import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
@@ -36,21 +37,27 @@ sentry_sdk.init(
 )
 
 # Chain of calls when bot receives a message from Telegram:
+# 1. http_entrypoint() - receives webhook POST request from Telegram
+# 2. handle_message() - processes the incoming message and sends response
+# 3. process_message() - determines if message is command or non-command
+# 4. For commands: looks up command in commands dict and executes it
+# 5. For non-commands: calls process_non_command() to handle journal/todo entries
+# 6. send_back() - sends the response back to user via Telegram API
 
 
-def send_back(message: Message, text):
+async def send_back(message: Message, text):
     """
     Sends a message back to the user. Using telegram bot's sendMessage method.
     :param message: incoming telegram message
     :param text:
     :return:
     """
-    bot.send_message(
+    await bot.send_message(
         chat_id=message.chat_id, text=text, reply_to_message_id=message.message_id
     )
 
 
-def handle_message(message: Message):
+async def handle_message(message: Message):
     """
     Handles incoming telegram message.
     :param message: incoming telegram message
@@ -58,9 +65,9 @@ def handle_message(message: Message):
     """
     response = process_message(message)
     if response:
-        send_back(message, response)
+        await send_back(message, response)
     else:
-        send_back(message, "I don't understand")
+        await send_back(message, "I don't understand")
 
 
 def process_message(message: Message):
@@ -117,6 +124,12 @@ authorized_chats = [
     for authorized_chat in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
 ]
 
+ignored_chats = [
+    int(ignored_chat)
+    for ignored_chat in os.environ.get("IGNORED_CHAT_IDS", "").split(",")
+    if ignored_chat
+]
+
 
 def auth_check(message: Message):
     if message.chat_id in authorized_chats:
@@ -126,11 +139,11 @@ def auth_check(message: Message):
     return False
 
 
+
 @functions_framework.http
-def http_handle(request: Request):
+def http_entrypoint(request: Request):
     """
     Incoming telegram webhook handler for a GCP Cloud Function.
-    When request is received, body is parsed into standard telegram message model, and then forwarded to command handler.
     """
     if request.method == "GET":
         return {"statusCode": 200}
@@ -142,7 +155,8 @@ def http_handle(request: Request):
             update_message = Update.de_json(incoming_data, bot)
             message = update_message.message or update_message.edited_message
             if auth_check(message):
-                handle_message(message)
+                # Run async function in sync context
+                asyncio.run(handle_message(message))
             return {"statusCode": 200}
         except Exception as e:
             sentry_sdk.capture_exception(e)

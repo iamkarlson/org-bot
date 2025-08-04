@@ -52,7 +52,7 @@ resource "google_cloudfunctions2_function" "bot" {
 
   build_config {
     runtime     = "python311"
-    entry_point = "http_handle" # Set the entry point
+    entry_point = "http_entrypoint" # Set the entry point
     source {
       storage_source {
         bucket = google_storage_bucket.default.name

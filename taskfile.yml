@@ -11,8 +11,45 @@ dotenv: ['config/{{.ENV}}/secrets.env']
 tasks:
   default:
     cmds:
+      
       - echo "env is activated using pyenv"
     silent: true
+
+  install_uv:
+    desc: "Install uv package manager"
+    status:
+      - command -v uv
+    cmds:
+      - echo "Installing uv package manager..."
+      - curl -LsSf https://astral.sh/uv/install.sh | sh
+    silent: false
+
+  update_deps:
+    deps:
+      - install_uv
+    desc: "Update all dependencies and regenerate requirements.txt"
+    cmds:
+      - uv sync --upgrade
+      - task: generate_requirements
+    silent: false
+
+  sync_deps:
+    deps:
+      - install_uv
+    desc: "Sync dependencies using uv"
+    cmds:
+      - uv sync
+    silent: false
+
+  generate_requirements:
+    deps:
+      - sync_deps
+    desc: "Generate requirements.txt from pyproject.toml for GCP Functions"
+    cmds:
+      - uv export --format requirements-txt --no-dev --no-hashes --output-file src/requirements.txt
+      - sed -i '/-e \./d' src/requirements.txt
+    silent: false
+
   switch_gcp_project:
     cmds:
       - echo "Using GCP account {{.GCP_ACCOUNT}}"
@@ -21,3 +58,15 @@ tasks:
       - gcloud config set project {{.GCP_PROJECT_NAME}}
       - gcloud auth application-default set-quota-project {{.GCP_PROJECT_NAME}}
     silent: true
+
+  deploy_gcp:
+    deps:
+      - generate_requirements
+    cmds:
+      - sh deploy.sh
+
+  deploy_terraform:
+    deps:
+      - generate_requirements
+    cmds:
+      - sh deploy_terraform.sh

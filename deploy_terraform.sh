@@ -1,10 +1,17 @@
 #!/usr/bin/env zsh
 
+# Exit immediately if any command fails
+set -e
+# Exit if any variable is unset
+set -u
+# Make pipelines fail if any command in the pipeline fails
+set -o pipefail
+
 eval $(yq -r 'to_entries[] | "export \(.key)=\(.value)"' config/production/config.yaml)
 
 # Copying requirements to sources as GCP wants it
 
-cp requirements.txt src/
+# cp pyproject.toml src/
 
 echo "Deploying terraform to $TF_VAR_project in $TF_VAR_region, name: $TF_VAR_name"
 

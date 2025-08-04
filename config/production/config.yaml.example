@@ -10,3 +10,4 @@ WEBHOOK_URL: https://your.gcp.function.url
 GITHUB_REPO: user/repo
 JOURNAL_FILE: journal.org
 AUTHORIZED_CHAT_IDS: "888888888"
+IGNORED_CHAT_IDS: "1234567890"
