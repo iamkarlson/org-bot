@@ -52,6 +52,14 @@ async def send_back(message: Message, text):
     :param text:
     :return:
     """
+
+    # escape text for MarkdownV2 formatting
+    # There's a bunch of characters that need escaping in MarkdownV2
+    markdownv2_escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in markdownv2_escape_chars:
+        text = text.replace(char, f'\\{char}')
+    
+    
     await bot.send_message(
         chat_id=message.chat_id, 
         text=text,
