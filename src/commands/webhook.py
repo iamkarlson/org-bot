@@ -38,8 +38,12 @@ async def command_webhook(message: Message):
             "chat_type": message.chat.type
         }
         response = json.dumps(response_data, indent=1).replace("\\", "\\\\")
-        return f"""```
+        return f"""Webhook data
+    
+    ```
+    
 {response}
+
 ```"""
 
     except Exception as e:

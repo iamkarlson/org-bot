@@ -1,13 +1,14 @@
 """_summary_
 
- Chain of calls when bot receives a message from Telegram:
- 1. http_entrypoint() - receives webhook POST request from Telegram
- 2. handle_message() - processes the incoming message and sends response
- 3. process_message() - determines if message is command or non-command
- 4. For commands: looks up command in commands dict and executes it
- 5. For non-commands: calls process_non_command() to handle journal/todo entries
- 6. send_back() - sends the response back to user via Telegram API
+Chain of calls when bot receives a message from Telegram:
+1. http_entrypoint() - receives webhook POST request from Telegram
+2. handle_message() - processes the incoming message and sends response
+3. process_message() - determines if message is command or non-command
+4. For commands: looks up command in commands dict and executes it
+5. For non-commands: calls process_non_command() to handle journal/todo entries
+6. send_back() - sends the response back to user via Telegram API
 """
+
 import logging
 import os
 
@@ -33,7 +34,7 @@ request = HTTPXRequest(
     pool_timeout=30,  # Wait up to 30 seconds for connection
     connection_pool_size=10,  # Allow up to 10 concurrent connections
     read_timeout=30,  # Timeout for reading response
-    write_timeout=30  # Timeout for writing request
+    write_timeout=30,  # Timeout for writing request
 )
 
 bot = Bot(token=BOT_TOKEN, request=request)
@@ -59,30 +60,54 @@ sentry_sdk.init(
 
 
 async def send_back(message: Message, text: str):
-    markdownv2_escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    markdownv2_escape_chars = [
+        "_",
+        "*",
+        "[",
+        "]",
+        "(",
+        ")",
+        "~",
+        # "`", # Perhaps this shouldn't be escaped
+        ">",
+        "#",
+        "+",
+        "-",
+        "=",
+        "|",
+        "{",
+        "}",
+        ".",
+        "!",
+    ]
     for char in markdownv2_escape_chars:
-        text = text.replace(char, f'\\{char}')
-    
+        text = text.replace(char, f"\\{char}")
+
     for attempt in range(3):
         try:
             await bot.send_message(
                 chat_id=message.chat_id,
                 text=text,
                 reply_to_message_id=message.message_id,
-                parse_mode="MarkdownV2"
+                parse_mode="MarkdownV2",
             )
             return
         except TimedOut:
             if attempt < 2:
+                logger.warning(f"Timeout retry {attempt + 1}/3")
                 await asyncio.sleep(attempt + 1)
                 continue
+            logger.error("Failed after 3 timeout attempts")
             raise
         except NetworkError as e:
             if "Event loop is closed" in str(e):
+                logger.info("Event loop closed, request likely completed")
                 return
             if attempt < 2:
+                logger.warning(f"Network retry {attempt + 1}/3: {type(e).__name__}")
                 await asyncio.sleep(attempt + 1)
                 continue
+            logger.error(f"Failed after 3 network attempts: {type(e).__name__}")
             raise
 
 
@@ -115,7 +140,7 @@ async def process_message(message: Message):
         logger.info("Photo received")
 
     message_text = get_text_from_message(message)
-    
+
     if message_text.startswith("/"):
         # Commands are always processed, even from ignored chats
         command_text = message.text.split("@")[0]  # Split command and bot's name
@@ -170,8 +195,7 @@ def auth_check(message: Message):
         return True
     logger.error("Unauthorized chat id")
     sentry_sdk.capture_message(
-        f"Unauthorized chat id: {message.chat_id}",
-        level="error"
+        f"Unauthorized chat id: {message.chat_id}", level="error"
     )
     # Note: send_back is async but we can't await here in sync function
     # This should be handled at the calling level
@@ -191,22 +215,14 @@ def ignore_check(message: Message):
     return False
 
 
-
 async def handle_telegram_update(message: Message):
     """
-    Async handler for telegram updates with proper resource management.
+    Async handler for telegram updates.
     """
-    try:
-        if auth_check(message):
-            await handle_message(message)
-        else:
-            await send_back(message, "It's not for you!")
-    finally:
-        # Ensure proper cleanup of HTTP connections
-        try:
-            await bot.shutdown()
-        except Exception as cleanup_error:
-            logger.debug(f"Bot cleanup completed or already closed: {cleanup_error}")
+    if auth_check(message):
+        await handle_message(message)
+    else:
+        await send_back(message, "It's not for you!")
 
 
 @functions_framework.http
@@ -224,8 +240,9 @@ def http_entrypoint(request: Request):
             update_message = Update.de_json(incoming_data, bot)
             message = update_message.message or update_message.edited_message
             
-            # Run async function with proper lifecycle management
-            asyncio.run(handle_telegram_update(message))
+            if message:
+                # Run async function with proper lifecycle management
+                asyncio.run(handle_telegram_update(message))
             return {"statusCode": 200}
         except Exception as e:
             sentry_sdk.capture_exception(e)
