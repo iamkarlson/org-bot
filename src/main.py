@@ -1,3 +1,13 @@
+"""_summary_
+
+ Chain of calls when bot receives a message from Telegram:
+ 1. http_entrypoint() - receives webhook POST request from Telegram
+ 2. handle_message() - processes the incoming message and sends response
+ 3. process_message() - determines if message is command or non-command
+ 4. For commands: looks up command in commands dict and executes it
+ 5. For non-commands: calls process_non_command() to handle journal/todo entries
+ 6. send_back() - sends the response back to user via Telegram API
+"""
 import logging
 import os
 
@@ -6,7 +16,7 @@ import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
 from telegram.request import HTTPXRequest
-from telegram.error import TimedOut
+from telegram.error import TimedOut, NetworkError
 
 import sentry_sdk
 from sentry_sdk.integrations.gcp import GcpIntegration
@@ -47,51 +57,32 @@ sentry_sdk.init(
     profiles_sample_rate=1.0,
 )
 
-# Chain of calls when bot receives a message from Telegram:
-# 1. http_entrypoint() - receives webhook POST request from Telegram
-# 2. handle_message() - processes the incoming message and sends response
-# 3. process_message() - determines if message is command or non-command
-# 4. For commands: looks up command in commands dict and executes it
-# 5. For non-commands: calls process_non_command() to handle journal/todo entries
-# 6. send_back() - sends the response back to user via Telegram API
 
-
-async def send_back(message: Message, text):
-    """
-    Sends a message back to the user. Using telegram bot's sendMessage method.
-    :param message: incoming telegram message
-    :param text:
-    :return:
-    """
-
-    # escape text for MarkdownV2 formatting
-    # There's a bunch of characters that need escaping in MarkdownV2
+async def send_back(message: Message, text: str):
     markdownv2_escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
     for char in markdownv2_escape_chars:
         text = text.replace(char, f'\\{char}')
     
-    # Retry logic to handle connection pool timeouts
-    max_retries = 3
-    for attempt in range(max_retries):
+    for attempt in range(3):
         try:
             await bot.send_message(
-                chat_id=message.chat_id, 
+                chat_id=message.chat_id,
                 text=text,
                 reply_to_message_id=message.message_id,
-                parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting
+                parse_mode="MarkdownV2"
             )
-            return  # Success, exit retry loop
+            return
         except TimedOut:
-            if attempt < max_retries - 1:
-                # Exponential backoff: wait 1s, then 2s, then 3s
-                await asyncio.sleep(1 * (attempt + 1))
-                logger.warning(f"Telegram send_message timeout, retrying attempt {attempt + 2}/{max_retries}")
+            if attempt < 2:
+                await asyncio.sleep(attempt + 1)
                 continue
-            else:
-                logger.error(f"Failed to send message after {max_retries} attempts due to pool timeout")
-                raise
-        except Exception as e:
-            logger.error(f"Unexpected error sending message: {e}")
+            raise
+        except NetworkError as e:
+            if "Event loop is closed" in str(e):
+                return
+            if attempt < 2:
+                await asyncio.sleep(attempt + 1)
+                continue
             raise
 
 
@@ -201,6 +192,23 @@ def ignore_check(message: Message):
 
 
 
+async def handle_telegram_update(message: Message):
+    """
+    Async handler for telegram updates with proper resource management.
+    """
+    try:
+        if auth_check(message):
+            await handle_message(message)
+        else:
+            await send_back(message, "It's not for you!")
+    finally:
+        # Ensure proper cleanup of HTTP connections
+        try:
+            await bot.shutdown()
+        except Exception as cleanup_error:
+            logger.debug(f"Bot cleanup completed or already closed: {cleanup_error}")
+
+
 @functions_framework.http
 def http_entrypoint(request: Request):
     """
@@ -216,12 +224,8 @@ def http_entrypoint(request: Request):
             update_message = Update.de_json(incoming_data, bot)
             message = update_message.message or update_message.edited_message
             
-            if auth_check(message):
-                # Run async function in sync context
-                asyncio.run(handle_message(message))
-            else:
-                # Handle unauthorized case
-                asyncio.run(send_back(message, "It's not for you!"))
+            # Run async function with proper lifecycle management
+            asyncio.run(handle_telegram_update(message))
             return {"statusCode": 200}
         except Exception as e:
             sentry_sdk.capture_exception(e)
