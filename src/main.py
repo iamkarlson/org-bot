@@ -5,6 +5,8 @@ import asyncio
 import functions_framework
 from flask import Request, abort
 from telegram import Bot, Update, Message
+from telegram.request import HTTPXRequest
+from telegram.error import TimedOut
 
 import sentry_sdk
 from sentry_sdk.integrations.gcp import GcpIntegration
@@ -15,7 +17,16 @@ from .utils import get_text_from_message
 
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-bot = Bot(token=BOT_TOKEN)
+
+# Configure HTTP client with larger pool and longer timeout to prevent pool exhaustion
+request = HTTPXRequest(
+    pool_timeout=30,  # Wait up to 30 seconds for connection
+    connection_pool_size=10,  # Allow up to 10 concurrent connections
+    read_timeout=30,  # Timeout for reading response
+    write_timeout=30  # Timeout for writing request
+)
+
+bot = Bot(token=BOT_TOKEN, request=request)
 
 # Set the new logger class
 logging.setLoggerClass(GCPLogger)
@@ -59,13 +70,29 @@ async def send_back(message: Message, text):
     for char in markdownv2_escape_chars:
         text = text.replace(char, f'\\{char}')
     
-    
-    await bot.send_message(
-        chat_id=message.chat_id, 
-        text=text,
-        reply_to_message_id=message.message_id,
-        parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting
-    )
+    # Retry logic to handle connection pool timeouts
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            await bot.send_message(
+                chat_id=message.chat_id, 
+                text=text,
+                reply_to_message_id=message.message_id,
+                parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting
+            )
+            return  # Success, exit retry loop
+        except TimedOut:
+            if attempt < max_retries - 1:
+                # Exponential backoff: wait 1s, then 2s, then 3s
+                await asyncio.sleep(1 * (attempt + 1))
+                logger.warning(f"Telegram send_message timeout, retrying attempt {attempt + 2}/{max_retries}")
+                continue
+            else:
+                logger.error(f"Failed to send message after {max_retries} attempts due to pool timeout")
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error sending message: {e}")
+            raise
 
 
 async def handle_message(message: Message):
