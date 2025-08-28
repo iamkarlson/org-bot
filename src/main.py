@@ -182,7 +182,7 @@ async def handle_telegram_update(message: Message):
     """
     Async handler for telegram updates.
     """
-    if auth_check(message):
+    if await auth_check(message, get_bot):
         await handle_message(message)
     else:
         await send_back(

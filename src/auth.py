@@ -18,8 +18,13 @@ ignored_chats = [
     if ignored_chat
 ]
 
+# Optional: Forward unauthorized messages to this chat ID
+forward_unauthorized_to = os.environ.get("FORWARD_UNAUTHORIZED_TO")
+if forward_unauthorized_to:
+    forward_unauthorized_to = int(forward_unauthorized_to)
 
-def auth_check(message: Message):
+
+async def auth_check(message: Message, bot_getter=None):
     """
     Check if message comes from an authorized chat.
     Logs comprehensive information about unauthorized access attempts.
@@ -84,6 +89,40 @@ def auth_check(message: Message):
             f"Unauthorized chat access attempt from chat_id: {message.chat_id}",
             level="warning"
         )
+    
+    # Forward unauthorized message if configured
+    if forward_unauthorized_to and bot_getter:
+        try:
+            bot = bot_getter()
+            
+            # Create summary message with context
+            summary_text = f"🚨 UNAUTHORIZED ACCESS\n\n"
+            summary_text += f"Chat: {chat_info.get('title') or chat_info.get('first_name') or 'Unknown'} ({chat_info['chat_type']})\n"
+            summary_text += f"Chat ID: {chat_info['chat_id']}\n"
+            if user_info.get('username'):
+                summary_text += f"User: @{user_info['username']}\n"
+            if user_info.get('first_name'):
+                summary_text += f"Name: {user_info['first_name']} {user_info.get('last_name', '')}\n"
+            summary_text += f"User ID: {user_info['user_id']}\n"
+            summary_text += f"Date: {message.date}\n"
+            
+            # Send summary first
+            await bot.send_message(
+                chat_id=forward_unauthorized_to,
+                text=summary_text
+            )
+            
+            # Then forward the original message
+            await bot.forward_message(
+                chat_id=forward_unauthorized_to,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id
+            )
+            
+            logger.info(f"Forwarded unauthorized message to {forward_unauthorized_to}")
+            
+        except Exception as e:
+            logger.error(f"Failed to forward unauthorized message: {e}")
     
     return False
 
