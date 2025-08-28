@@ -13,6 +13,7 @@ from sentry_sdk.integrations.gcp import GcpIntegration
 from .config import init_commands, actions
 from .tracing.log import GCPLogger
 from .utils import get_text_from_message
+from .auth import auth_check, ignore_check
 
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
@@ -22,7 +23,7 @@ request = HTTPXRequest(
     pool_timeout=30,  # Wait up to 30 seconds for connection
     connection_pool_size=10,  # Allow up to 10 concurrent connections
     read_timeout=30,  # Timeout for reading response
-    write_timeout=30  # Timeout for writing request
+    write_timeout=30,  # Timeout for writing request
 )
 
 
@@ -141,7 +142,9 @@ async def process_message(message: Message):
 
     if message_text.startswith("/"):
         # Commands are always processed, even from ignored chats
-        command_text = (message.text or "").split("@")[0]  # Split command and bot's name
+        command_text = (message.text or "").split("@")[
+            0
+        ]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
             return await command.execute(message)
@@ -175,44 +178,6 @@ def process_non_command(message: Message, file_path=None):
         return "Failed to add to journal."
 
 
-authorized_chats = [
-    int(authorized_chat)
-    for authorized_chat in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
-]
-
-ignored_chats = [
-    int(ignored_chat)
-    for ignored_chat in os.environ.get("IGNORED_CHAT_IDS", "").split(",")
-    if ignored_chat
-]
-
-
-def auth_check(message: Message):
-    logger.debug(f"All authorized chats: {authorized_chats}")
-    if message.chat_id in authorized_chats:
-        return True
-    logger.error("Unauthorized chat id")
-    sentry_sdk.capture_message(
-        f"Unauthorized chat id: {message.chat_id}", level="error"
-    )
-    # Note: send_back is async but we can't await here in sync function
-    # This should be handled at the calling level
-    return False
-
-
-def ignore_check(message: Message):
-    """
-    Check if message comes from an ignored chat.
-    :param message: incoming telegram message
-    :return: True if chat should be ignored, False otherwise
-    """
-    logger.debug(f"All ignored chats: {ignored_chats}")
-    if message.chat_id in ignored_chats:
-        logger.info(f"Message from ignored chat: {message.chat_id}")
-        return True
-    return False
-
-
 async def handle_telegram_update(message: Message):
     """
     Async handler for telegram updates.
@@ -220,7 +185,9 @@ async def handle_telegram_update(message: Message):
     if auth_check(message):
         await handle_message(message)
     else:
-        await send_back(message, "It's not for you!")
+        await send_back(
+            message, "It's not for you! If you have any questions ask @iamkarlson"
+        )
 
 
 @functions_framework.http
@@ -237,7 +204,7 @@ def http_entrypoint(request: Request):
             logger.debug(f"incoming data: {incoming_data}")
             update_message = Update.de_json(incoming_data, get_bot())
             message = update_message.message or update_message.edited_message
-            
+
             if message:
                 # Run async function with proper lifecycle management
                 asyncio.run(handle_telegram_update(message))
