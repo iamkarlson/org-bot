@@ -1,22 +1,26 @@
 import os
+from typing import Callable
+from telegram import Bot
 
 from .commands import (
-    command_start,
-    command_webhook,
-    command_info,
+    StartCommand,
+    WebhookCommand,
+    InfoCommand,
     PostToGitJournal,
     PostToTodo,
 )
 
-commands = {
-    "/start": command_start,
-    "/webhook": command_webhook,
-    "/info": command_info,
-}
+
+def init_commands(get_bot: Callable[[], Bot]):
+    """Initialize command instances with bot getter dependency."""
+    return {
+        "/start": StartCommand(get_bot),
+        "/webhook": WebhookCommand(get_bot),
+        "/info": InfoCommand(get_bot),
+    }
 
 
 # Configuration is coming from "JOURNAL_FILE" env variable.
-
 github_token = os.getenv("GITHUB_TOKEN", None)
 repo_name = os.getenv("GITHUB_REPO", None)
 file_path = os.getenv("JOURNAL_FILE", "journal.md")

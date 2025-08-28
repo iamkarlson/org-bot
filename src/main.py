@@ -1,17 +1,5 @@
-"""_summary_
-
-Chain of calls when bot receives a message from Telegram:
-1. http_entrypoint() - receives webhook POST request from Telegram
-2. handle_message() - processes the incoming message and sends response
-3. process_message() - determines if message is command or non-command
-4. For commands: looks up command in commands dict and executes it
-5. For non-commands: calls process_non_command() to handle journal/todo entries
-6. send_back() - sends the response back to user via Telegram API
-"""
-
 import logging
 import os
-
 import asyncio
 import functions_framework
 from flask import Request, abort
@@ -22,7 +10,7 @@ from telegram.error import TimedOut, NetworkError
 import sentry_sdk
 from sentry_sdk.integrations.gcp import GcpIntegration
 
-from .config import commands, actions
+from .config import init_commands, actions
 from .tracing.log import GCPLogger
 from .utils import get_text_from_message
 
@@ -34,13 +22,19 @@ request = HTTPXRequest(
     pool_timeout=30,  # Wait up to 30 seconds for connection
     connection_pool_size=10,  # Allow up to 10 concurrent connections
     read_timeout=30,  # Timeout for reading response
-    write_timeout=30,  # Timeout for writing request
+    write_timeout=30  # Timeout for writing request
 )
 
-bot = Bot(token=BOT_TOKEN, request=request)
+
+def get_bot() -> Bot:
+    """Safe bot getter that creates a fresh instance for each request."""
+    return Bot(token=BOT_TOKEN, request=request)
+
 
 # Set the new logger class
 logging.setLoggerClass(GCPLogger)
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +79,7 @@ async def send_back(message: Message, text: str):
 
     for attempt in range(3):
         try:
+            bot = get_bot()
             await bot.send_message(
                 chat_id=message.chat_id,
                 text=text,
@@ -136,17 +131,20 @@ async def process_message(message: Message):
         # and then pass it command to insert it into the journal
         temp_file_path = f"/tmp/{message.photo[-1].file_id}.jpg"
         with open(temp_file_path, "wb") as file:
-            file.write(bot.get_file(message.photo[-1].file_id).download_as_bytearray())
+            bot = get_bot()
+            file_obj = await bot.get_file(message.photo[-1].file_id)
+            file.write(await file_obj.download_as_bytearray())
         logger.info("Photo received")
 
     message_text = get_text_from_message(message)
+    commands = init_commands(get_bot)  # Initialize commands with bot getter
 
     if message_text.startswith("/"):
         # Commands are always processed, even from ignored chats
-        command_text = message.text.split("@")[0]  # Split command and bot's name
+        command_text = (message.text or "").split("@")[0]  # Split command and bot's name
         command = commands.get(command_text)
         if command:
-            return await command(message)
+            return await command.execute(message)
         else:
             return "Unrecognized command"
     else:
@@ -237,7 +235,7 @@ def http_entrypoint(request: Request):
         try:
             incoming_data = request.get_json()
             logger.debug(f"incoming data: {incoming_data}")
-            update_message = Update.de_json(incoming_data, bot)
+            update_message = Update.de_json(incoming_data, get_bot())
             message = update_message.message or update_message.edited_message
             
             if message:

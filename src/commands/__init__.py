@@ -1,4 +1,4 @@
-from .info import command_info
-from .start import command_start
-from .webhook import command_webhook
+from .info import InfoCommand
+from .start import StartCommand
+from .webhook import WebhookCommand
 from .post_to_journal import PostToGitJournal, PostToTodo

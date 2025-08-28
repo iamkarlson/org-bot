@@ -1,22 +1,12 @@
 import json
-import logging
-import os
-
-from telegram import Bot, Message
-
-logger = logging.getLogger(__name__)
-
-BOT_TOKEN = os.getenv("BOT_TOKEN", None)
-if BOT_TOKEN:
-    bot = Bot(token=BOT_TOKEN)
-else:
-    logger.error("BOT_TOKEN is not set")
-    bot = None
+from telegram import Message
+from ..base_command import BaseCommand
 
 
-async def command_info(message: Message):
-    response_data = await bot.get_me()
-    response = json.dumps(response_data, indent=1).replace("\\", "\\\\")
-    return f"""```
+class InfoCommand(BaseCommand):
+    async def execute(self, message: Message) -> str:
+        response_data = await self.bot.get_me()
+        response = json.dumps(response_data, indent=1).replace("\\", "\\\\")
+        return f"""```
 {response}
 ```"""
