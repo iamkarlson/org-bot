@@ -163,11 +163,20 @@ def process_non_command(message: Message, file_path=None):
     logger.info("Processing non-command message")
     logger.debug(message.to_json())
 
-    message_text = get_text_from_message(message)
-    if message_text.lower().startswith("todo "):
-        keyword = "todo"
+    # Check if this is a reply to another message
+    if message.reply_to_message:
+        keyword = "reply"
+        logger.info(
+            f"Detected reply to message {message.reply_to_message.message_id}",
+            extra={"original_message_id": message.reply_to_message.message_id}
+        )
     else:
-        keyword = "journal"
+        # Not a reply, check if it's a todo or journal entry
+        message_text = get_text_from_message(message)
+        if message_text.lower().startswith("todo "):
+            keyword = "todo"
+        else:
+            keyword = "journal"
 
     try:
         if action_config := actions.get(keyword):

@@ -8,6 +8,7 @@ from .commands import (
     InfoCommand,
     PostToGitJournal,
     PostToTodo,
+    PostReplyToEntry,
 )
 
 
@@ -31,10 +32,18 @@ journal = PostToGitJournal(
 
 todo = PostToTodo(github_token=github_token, repo_name=repo_name, file_path="todo.org")
 
+reply = PostReplyToEntry(
+    github_token=github_token,
+    repo_name=repo_name,
+    file_path=file_path,
+    todo_file_path="todo.org"
+)
+
 # Default action is to post to journal
 default_action = journal.run
 
 actions = {
     "journal": {"function": journal.run, "response": "Added to journal!"},
     "todo": {"function": todo.run, "response": "Added to todo list!"},
+    "reply": {"function": reply.run, "response": "Added reply to entry!"},
 }
