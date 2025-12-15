@@ -70,3 +70,27 @@ tasks:
       - generate_requirements
     cmds:
       - sh deploy_terraform.sh
+
+  test:
+    deps:
+      - sync_deps
+    desc: "Run unit tests with verbose logging"
+    cmds:
+      - ./run_tests.sh
+    silent: false
+
+  test-quick:
+    deps:
+      - sync_deps
+    desc: "Run tests without submodule checks (faster)"
+    cmds:
+      - uv run pytest tests/ -v
+    silent: false
+
+  test-watch:
+    deps:
+      - sync_deps
+    desc: "Run tests in watch mode (requires pytest-watch)"
+    cmds:
+      - uv run pytest-watch tests/ -v
+    silent: false
