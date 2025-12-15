@@ -15,7 +15,7 @@ from typing import Any, Dict
 
 import pytest
 
-from commands.post_to_journal import PostToTodo
+from src.commands.post_to_journal import PostToTodo
 
 logger = logging.getLogger(__name__)
 
