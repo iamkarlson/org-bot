@@ -38,7 +38,7 @@ def configure_verbose_logging() -> None:
     # Very detailed formatter
     formatter = logging.Formatter(
         fmt='%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)-30s] %(funcName)-25s:%(lineno)-4d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        datefmt='%Y-%m-%d_%H:%M:%S'
     )
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)

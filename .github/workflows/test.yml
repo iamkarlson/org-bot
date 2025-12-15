@@ -85,8 +85,8 @@ jobs:
           echo "==================================================================="
           echo "Running Tests with Verbose Logging"
           echo "==================================================================="
-          # Use uv to run pytest with all the verbose settings from pytest.ini
-          uv run pytest tests/ -v --tb=short --log-cli=true --log-cli-level=DEBUG
+          # Use uv to run pytest (all verbose settings are in pytest.ini)
+          uv run pytest tests/
 
       - name: Upload test results
         if: always()
