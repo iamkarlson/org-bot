@@ -1,6 +1,6 @@
 # Brain telegram bot
 
-Dumps sent messages to github. Runs on GCP.
+Dumps sent messages to GitHub. Runs on GCP.
 
 # Why
 
