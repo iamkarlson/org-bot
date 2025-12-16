@@ -32,14 +32,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install Task (go-task)
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install uv package manager
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: task install_uv
 
       - name: Install dependencies
-        run: |
-          uv sync --all-extras
+        run: task sync_deps
 
       - name: Display environment information
         run: |
@@ -48,6 +51,7 @@ jobs:
           echo "==================================================================="
           echo "Python version: $(python --version)"
           echo "uv version: $(uv --version)"
+          echo "Task version: $(task --version)"
           echo "Working directory: $(pwd)"
           echo "Git branch: ${GITHUB_REF#refs/heads/}"
           echo "Git commit: $GITHUB_SHA"
@@ -77,16 +81,11 @@ jobs:
           fi
           echo "==================================================================="
 
-      - name: Run tests with pytest
+      - name: Run tests with Task
         env:
           GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_TOKEN }}
           TEST_GITHUB_REPO: ${{ secrets.TEST_GITHUB_REPO }}
-        run: |
-          echo "==================================================================="
-          echo "Running Tests with Verbose Logging"
-          echo "==================================================================="
-          # Use uv to run pytest (all verbose settings are in pytest.ini)
-          uv run pytest tests/
+        run: task test
 
       - name: Upload test results
         if: always()

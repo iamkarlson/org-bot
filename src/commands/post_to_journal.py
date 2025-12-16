@@ -40,7 +40,7 @@ class BasePostToGitJournal:
             extra={
                 "action": "append_text",
                 "commit_message": commit_message,
-                "message": new_text,
+                "new_text": new_text,
             },
         )
 

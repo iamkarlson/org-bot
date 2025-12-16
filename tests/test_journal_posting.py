@@ -56,7 +56,7 @@ class TestPostToGitJournal:
         """Create a PostToGitJournal instance with mocked GitHub client."""
         logger.info("Creating PostToGitJournal instance for testing")
 
-        with patch('commands.post_to_journal.Github', return_value=mock_github_client):
+        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client):
             instance = PostToGitJournal(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],

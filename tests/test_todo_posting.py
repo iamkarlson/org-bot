@@ -56,7 +56,7 @@ class TestPostToTodo:
         """Create a PostToTodo instance with mocked GitHub client."""
         logger.info("Creating PostToTodo instance for testing")
 
-        with patch('commands.post_to_journal.Github', return_value=mock_github_client):
+        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client):
             instance = PostToTodo(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],

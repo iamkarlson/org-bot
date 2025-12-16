@@ -76,7 +76,7 @@ tasks:
       - sync_deps
     desc: "Run unit tests with verbose logging"
     cmds:
-      - ./run_tests.sh
+      - uv run pytest tests/ -v
     silent: false
 
   test-quick:
