@@ -234,7 +234,7 @@ def mock_telegram_message_document() -> Mock:
 @pytest.fixture
 def mock_github_token() -> str:
     """Return a mock GitHub token or get from environment."""
-    token = os.getenv("GITHUB_TOKEN", "mock_github_token_for_testing")
+    token = os.getenv("GITHUB_TOKEN") or "mock_github_token_for_testing"
     logging.debug(f"Using GitHub token: {token[:10]}..." if len(token) > 10 else "Using mock token")
     return token
 
@@ -242,7 +242,7 @@ def mock_github_token() -> str:
 @pytest.fixture
 def mock_github_repo() -> str:
     """Return a mock GitHub repository name or get from environment."""
-    repo = os.getenv("TEST_GITHUB_REPO", "test-user/test-repo")
+    repo = os.getenv("TEST_GITHUB_REPO") or "test-user/test-repo"
     logging.debug(f"Using GitHub repository: {repo}")
     return repo
 
@@ -251,8 +251,8 @@ def mock_github_repo() -> str:
 def test_config() -> Dict[str, Any]:
     """Return test configuration dictionary."""
     config = {
-        "github_token": os.getenv("GITHUB_TOKEN", "mock_token"),
-        "github_repo": os.getenv("TEST_GITHUB_REPO", "test-user/test-repo"),
+        "github_token": os.getenv("GITHUB_TOKEN") or "mock_token",
+        "github_repo": os.getenv("TEST_GITHUB_REPO") or "test-user/test-repo",
         "journal_file": "test_journal.org",
         "todo_file": "test_todo.org",
     }
