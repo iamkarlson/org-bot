@@ -176,6 +176,43 @@ class PostReplyToEntry(BasePostToGitJournal):
             logger.warning(f"Could not search {file_path}: {e}")
             return None
 
+    def _find_top_level_entry(self, file_path: str, start_line: int, current_level: int) -> tuple[int, int]:
+        """
+        Find the top-level (non-reply) entry by searching backwards from the current position.
+        This ensures all replies are at the same level, regardless of whether replying to
+        an original entry or to another reply.
+
+        :param file_path: The file to search in
+        :param start_line: Line number to start searching from
+        :param current_level: Current org-mode level
+        :return: Tuple of (line_number, org_level) for the top-level entry
+        """
+        contents = self.repo.get_contents(file_path, ref="main")
+        decoded_content = contents.decoded_content.decode("utf-8")
+        lines = decoded_content.split("\n")
+
+        # Check if current entry is itself a reply
+        if "Reply:" not in lines[start_line]:
+            # Not a reply, this is the top-level entry
+            return (start_line, current_level)
+
+        # Search backwards for the first non-reply entry with lower level
+        for i in range(start_line - 1, -1, -1):
+            match = re.match(r'^(\*+)\s', lines[i])
+            if match:
+                line_level = len(match.group(1))
+                # Found an entry with lower level
+                if line_level < current_level:
+                    # Check if it's not a reply
+                    if "Reply:" not in lines[i]:
+                        logger.info(
+                            f"Found top-level entry at line {i} with level {line_level} in {file_path}"
+                        )
+                        return (i, line_level)
+
+        # If we didn't find a parent, the current entry is top-level
+        return (start_line, current_level)
+
     def _insert_reply_after_entry(
         self,
         file_path: str,
@@ -283,8 +320,13 @@ class PostReplyToEntry(BasePostToGitJournal):
 
         line_number, org_level = entry_location
 
-        # Create the reply entry as a subheader (one level deeper)
-        reply_level = org_level + 1
+        # Find the top-level (non-reply) entry to ensure all replies are at same level
+        top_line_number, top_org_level = self._find_top_level_entry(
+            file_to_update, line_number, org_level
+        )
+
+        # Create the reply entry as a subheader (one level deeper than top-level)
+        reply_level = top_org_level + 1
         asterisks = "*" * reply_level
 
         message_id = message.message_id
@@ -298,10 +340,12 @@ class PostReplyToEntry(BasePostToGitJournal):
         commit_message = f"Reply to message {original_message_id} from chat {chat_id}"
 
         # Insert the reply after the original entry
+        # Note: We insert after the found entry (line_number) but use top_org_level
+        # to determine where to insert (before next entry at same level as top-level)
         self._insert_reply_after_entry(
             file_to_update,
-            line_number,
-            org_level,
+            top_line_number,
+            top_org_level,
             reply_text,
             commit_message
         )

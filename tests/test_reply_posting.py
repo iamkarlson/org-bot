@@ -426,6 +426,179 @@ Some other message."""
 
     @pytest.mark.unit
     @pytest.mark.reply
+    def test_reply_to_reply_stays_at_same_level(
+        self,
+        test_config: Dict[str, Any],
+    ) -> None:
+        """
+        Test replying to a reply message.
+
+        Expected behavior:
+        - Find the reply message
+        - Find the top-level (non-reply) entry
+        - Create new reply at same level as first reply (not deeper)
+
+        Structure:
+        * Entry: [[link1][time1]]
+        Original content
+        ** Reply: [[link2][time2]]
+        First reply
+
+        After replying to link2, should become:
+        * Entry: [[link1][time1]]
+        Original content
+        ** Reply: [[link2][time2]]
+        First reply
+        ** Reply: [[link3][time3]]  <-- Same level as first reply, not ***
+        Second reply
+        """
+        logger.info("=" * 80)
+        logger.info("TEST: Reply to reply stays at same level")
+        logger.info("=" * 80)
+
+        # Create a journal with an entry and a reply to it
+        journal_content = """#+TITLE: My Journal
+* Entry: [[https://t.me/c/1234567890/100][2025-12-17 10:00]]
+This is the original message.
+** Reply: [[https://t.me/c/1234567890/200][2025-12-17 11:00]]
+This is a reply to the original message.
+* Entry: [[https://t.me/c/1234567890/999][2025-12-17 12:00]]
+Another entry."""
+
+        client = MagicMock()
+        mock_repo = MagicMock()
+        client.get_repo.return_value = mock_repo
+
+        mock_contents = MagicMock()
+        mock_contents.decoded_content = journal_content.encode('utf-8')
+        mock_contents.sha = "mock_sha_reply"
+        mock_contents.path = "test_journal.org"
+
+        mock_repo.get_contents.return_value = mock_contents
+        mock_repo.update_file.return_value = {"commit": {"sha": "new_commit_sha"}}
+
+        # Create a message that replies to the reply (link2)
+        original_message = Mock()
+        original_message.message_id = 200  # Replying to the reply
+        original_chat = Mock()
+        original_chat.id = 1234567890
+        original_message.chat = original_chat
+
+        message = Mock()
+        message.message_id = 300
+        message.text = "This is a reply to the reply"
+        message.caption = None
+        message.photo = None
+        message.document = None
+        message.reply_to_message = original_message
+
+        chat = Mock()
+        chat.id = 1234567890
+        message.chat = chat
+
+        with patch('src.commands.post_to_journal.Github', return_value=client):
+            reply_instance = PostReplyToEntry(
+                github_token=test_config["github_token"],
+                repo_name=test_config["github_repo"],
+                file_path=test_config["journal_file"],
+                todo_file_path=test_config["todo_file"],
+            )
+
+            logger.info(f"Replying to message {original_message.message_id} (which is itself a reply)")
+            result = reply_instance.run(message=message, file_path=None)
+
+            # Verify result
+            logger.info(f"Result: {result}")
+            assert result is True, "Expected run() to return True"
+
+            # Verify update was called
+            assert mock_repo.update_file.called, "Should update file"
+            update_call_args = mock_repo.update_file.call_args
+
+            updated_content = update_call_args[1]["content"]
+            logger.debug(f"Updated content:\n{updated_content}")
+
+            # Count the number of ** Reply: entries - should have 2 now
+            reply_count = updated_content.count("** Reply:")
+            logger.info(f"Number of ** Reply: entries: {reply_count}")
+            assert reply_count == 2, "Should have 2 replies at ** level"
+
+            # Should NOT have *** Reply: (no deeper nesting)
+            assert "*** Reply:" not in updated_content, "Should NOT have *** level replies"
+
+            # Verify both replies are present
+            assert "https://t.me/c/1234567890/200" in updated_content, "First reply link should be present"
+            assert "https://t.me/c/1234567890/300" in updated_content, "Second reply link should be present"
+
+            logger.info("Reply to reply test PASSED - all replies stay at same level")
+
+    @pytest.mark.unit
+    @pytest.mark.reply
+    def test_find_top_level_entry_method(
+        self,
+        test_config: Dict[str, Any],
+    ) -> None:
+        """
+        Test the _find_top_level_entry method directly.
+
+        Verifies:
+        - Returns same entry if it's not a reply
+        - Finds parent entry if current entry is a reply
+        """
+        logger.info("=" * 80)
+        logger.info("TEST: _find_top_level_entry method")
+        logger.info("=" * 80)
+
+        # Create a journal with nested structure
+        journal_content = """#+TITLE: My Journal
+* Entry: [[https://t.me/c/1234567890/100][2025-12-17 10:00]]
+Original content
+** Reply: [[https://t.me/c/1234567890/200][2025-12-17 11:00]]
+First reply
+* Another Entry: [[https://t.me/c/1234567890/300][2025-12-17 12:00]]
+Different content"""
+
+        client = MagicMock()
+        mock_repo = MagicMock()
+        client.get_repo.return_value = mock_repo
+
+        mock_contents = MagicMock()
+        mock_contents.decoded_content = journal_content.encode('utf-8')
+        mock_contents.sha = "mock_sha"
+        mock_contents.path = "test_journal.org"
+
+        mock_repo.get_contents.return_value = mock_contents
+
+        with patch('src.commands.post_to_journal.Github', return_value=client):
+            reply_instance = PostReplyToEntry(
+                github_token=test_config["github_token"],
+                repo_name=test_config["github_repo"],
+                file_path=test_config["journal_file"],
+                todo_file_path=test_config["todo_file"],
+            )
+
+            # Test 1: Non-reply entry should return itself
+            logger.info("Test 1: Non-reply entry")
+            line_num, level = reply_instance._find_top_level_entry(
+                test_config["journal_file"], 1, 1  # Line 1 is "* Entry:" (the original)
+            )
+            logger.info(f"Result: line {line_num}, level {level}")
+            assert line_num == 1, "Should return same line for non-reply entry"
+            assert level == 1, "Should return same level for non-reply entry"
+
+            # Test 2: Reply entry should find its parent
+            logger.info("Test 2: Reply entry")
+            line_num, level = reply_instance._find_top_level_entry(
+                test_config["journal_file"], 3, 2  # Line 3 is "** Reply:"
+            )
+            logger.info(f"Result: line {line_num}, level {level}")
+            assert line_num == 1, "Should return parent entry line"
+            assert level == 1, "Should return parent entry level"
+
+            logger.info("_find_top_level_entry method test PASSED")
+
+    @pytest.mark.unit
+    @pytest.mark.reply
     def test_find_original_entry_method(
         self,
         mock_github_client_with_journal_entry: MagicMock,
