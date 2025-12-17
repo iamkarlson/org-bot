@@ -1,0 +1,117 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+      - 'feature/**'
+      - 'develop'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Initialize git submodules
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Task (go-task)
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv package manager
+        run: task install_uv
+
+      - name: Install dependencies
+        run: task sync_deps
+
+      - name: Display environment information
+        run: |
+          echo "==================================================================="
+          echo "Environment Information"
+          echo "==================================================================="
+          echo "Python version: $(python --version)"
+          echo "uv version: $(uv --version)"
+          echo "Task version: $(task --version)"
+          echo "Working directory: $(pwd)"
+          echo "Git branch: ${GITHUB_REF#refs/heads/}"
+          echo "Git commit: $GITHUB_SHA"
+          echo "==================================================================="
+
+      - name: Check git submodule status
+        run: |
+          echo "==================================================================="
+          echo "Git Submodule Status"
+          echo "==================================================================="
+          if [ -d "tests/fixtures/org-files/.git" ] || [ -f "tests/fixtures/org-files/.git" ]; then
+            echo "Submodule found. Checking status..."
+            cd tests/fixtures/org-files
+            echo ""
+            echo "Git Status:"
+            git status
+            echo ""
+            echo "Git Log (last 5 commits):"
+            git log --oneline --decorate --graph -n 5 || echo "Unable to fetch git log"
+            echo ""
+            echo "Current commit details:"
+            git log -1 --stat || echo "Unable to fetch commit details"
+            cd -
+          else
+            echo "Warning: Git submodule not found at tests/fixtures/org-files"
+            echo "Tests may fail if they depend on submodule fixtures"
+          fi
+          echo "==================================================================="
+
+      - name: Run tests with Task
+        env:
+          GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_TOKEN }}
+          TEST_GITHUB_REPO: ${{ secrets.TEST_GITHUB_REPO }}
+        run: task test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-python-${{ matrix.python-version }}
+          path: |
+            .pytest_cache/
+            *.log
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "==================================================================="
+          echo "Test Execution Summary"
+          echo "==================================================================="
+          if [ "${{ needs.test.result }}" == "success" ]; then
+            echo "✅ All tests passed successfully!"
+            exit 0
+          else
+            echo "❌ Some tests failed. Please check the logs above."
+            exit 1
+          fi

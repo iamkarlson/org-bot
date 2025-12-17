@@ -8,7 +8,7 @@ from datetime import datetime
 
 from github import Github, Auth
 from telegram import Message
-from utils import get_text_from_message
+from ..utils import get_text_from_message
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class BasePostToGitJournal:
             extra={
                 "action": "append_text",
                 "commit_message": commit_message,
-                "message": new_text,
+                "new_text": new_text,
             },
         )
 
