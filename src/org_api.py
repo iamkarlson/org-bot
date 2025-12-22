@@ -153,3 +153,76 @@ class OrgApi:
                 "org_level": org_level + 1
             }
         )
+
+    def create_file(
+        self,
+        file_path: str,
+        content: bytes,
+        commit_message: str
+    ):
+        """
+        Creates a new file in the repository.
+
+        :param file_path: The path where the file should be created
+        :param content: The file content as bytes
+        :param commit_message: Git commit message
+        """
+        logger.info(
+            f"Creating file: {file_path}",
+            extra={
+                "action": "create_file",
+                "file_path": file_path,
+                "commit_message": commit_message,
+            },
+        )
+
+        self.repo.create_file(
+            path=file_path,
+            message=commit_message,
+            content=content,
+            branch="main",
+        )
+
+    def append_text_to_file(
+        self,
+        file_path: str,
+        new_text: str,
+        commit_message: str,
+        image_filename: Optional[str] = None
+    ):
+        """
+        Appends text to an org file in the repository.
+
+        :param file_path: The file to append to
+        :param new_text: The text to append
+        :param commit_message: Git commit message
+        :param image_filename: Optional image filename to include as org-mode link
+        """
+        logger.info(
+            "Appending text to file.",
+            extra={
+                "action": "append_text",
+                "commit_message": commit_message,
+                "new_text": new_text,
+            },
+        )
+
+        contents = self.repo.get_contents(file_path, ref="main")
+
+        # Decode the content and append new text
+        decoded_content = contents.decoded_content.decode("utf-8")
+        if image_filename:
+            # [[file:pics/minecraft_sorter_scheme_b.png]]
+            image_text = f"#+attr_html: :width 600px\n[[file:{image_filename}]]"
+            new_content = "\n".join([decoded_content, new_text, image_text])
+        else:
+            new_content = "\n".join([decoded_content, new_text])
+
+        # Update the file in the repository
+        self.repo.update_file(
+            path=contents.path,
+            message=commit_message,
+            content=new_content,
+            sha=contents.sha,
+            branch="main",
+        )

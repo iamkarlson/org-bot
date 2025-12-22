@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class BasePostToGitJournal:
-    def __init__(self, github_token=None, repo_name=None, file_path=None):
+    def __init__(self, github_token=None, repo_name=None, file_path=None, org_api=None):
         # Validating config
         self.token = github_token
         if not self.token:
@@ -34,38 +34,18 @@ class BasePostToGitJournal:
         # Get the specific repo and file
         self.repo = self.client.get_repo(self.repo_name)
 
+        # Use provided org_api or create a new one
+        self.org_api = org_api if org_api is not None else OrgApi(self.repo)
+
     def _append_text_to_file(
         self, new_text: str, commit_message: str, filename: str = None
     ):
-        logger.info(
-            "Appending text to file.",
-            extra={
-                "action": "append_text",
-                "commit_message": commit_message,
-                "new_text": new_text,
-            },
-        )
-
-        contents = self.repo.get_contents(
-            self.file_path, ref="main"
-        )  # Assuming you're working on the 'main' branch
-
-        # Decode the content and append new text
-        decoded_content = contents.decoded_content.decode("utf-8")
-        if filename:
-            # [[file:pics/minecraft_sorter_scheme_b.png]]
-            image_text = f"#+attr_html: :width 600px\n[[file:{filename}]]"
-            new_content = "\n".join([decoded_content, new_text, image_text])
-        else:
-            new_content = "\n".join([decoded_content, new_text])
-
-        # Update the file in the repository
-        self.repo.update_file(
-            path=contents.path,
-            message=commit_message,
-            content=new_content,
-            sha=contents.sha,
-            branch="main",
+        """Wrapper method for backward compatibility. Uses org_api internally."""
+        self.org_api.append_text_to_file(
+            self.file_path,
+            new_text,
+            commit_message,
+            image_filename=filename
         )
 
     def run(self, message: Message, file_path=None):
@@ -81,11 +61,10 @@ class BasePostToGitJournal:
             with open(file_path, "rb") as file:
                 file_bytes = file.read()
                 filename = "pics/telegram/" + file_path.split("/")[-1]
-                self.repo.create_file(
-                    path=filename,
-                    message="Image from telegram",
+                self.org_api.create_file(
+                    file_path=filename,
                     content=file_bytes,
-                    branch="main",
+                    commit_message="Image from telegram"
                 )
 
         message_id = message.message_id
@@ -141,10 +120,9 @@ class PostReplyToEntry(BasePostToGitJournal):
     and adding the reply as a subheader (child entry).
     """
 
-    def __init__(self, github_token=None, repo_name=None, file_path=None, todo_file_path=None):
-        super().__init__(github_token, repo_name, file_path)
+    def __init__(self, github_token=None, repo_name=None, file_path=None, todo_file_path=None, org_api=None):
+        super().__init__(github_token, repo_name, file_path, org_api=org_api)
         self.todo_file_path = todo_file_path
-        self.org_api = OrgApi(self.repo)
 
     def _find_original_entry(self, original_message_link: str, file_path: str) -> tuple[int, int] | None:
         """

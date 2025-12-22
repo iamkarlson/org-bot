@@ -592,3 +592,151 @@ This is the only entry."""
         assert "Third reply." in updated_content, "New reply text added"
 
         logger.info("Test PASSED")
+
+    @pytest.mark.unit
+    @pytest.mark.orgapi
+    def test_create_file(
+        self,
+        org_api: OrgApi,
+        mock_repo: MagicMock,
+    ) -> None:
+        """
+        Test creating a new file in the repository.
+
+        Expected behavior:
+        - Call repo.create_file with correct parameters
+        """
+        logger.info("=" * 80)
+        logger.info("TEST: Create file")
+        logger.info("=" * 80)
+
+        # Setup mock
+        mock_repo.create_file.return_value = {"commit": {"sha": "new_file_sha"}}
+
+        # Execute
+        file_content = b"Test file content"
+        org_api.create_file(
+            file_path="pics/telegram/test.png",
+            content=file_content,
+            commit_message="Test file upload"
+        )
+
+        # Verify
+        logger.info("Verifying create_file was called")
+        assert mock_repo.create_file.called, "Should call repo.create_file"
+
+        call_args = mock_repo.create_file.call_args
+        logger.debug(f"create_file called with: {call_args}")
+
+        # Verify parameters
+        assert call_args[1]["path"] == "pics/telegram/test.png"
+        assert call_args[1]["message"] == "Test file upload"
+        assert call_args[1]["content"] == file_content
+        assert call_args[1]["branch"] == "main"
+
+        logger.info("Test PASSED")
+
+    @pytest.mark.unit
+    @pytest.mark.orgapi
+    def test_append_text_to_file_without_image(
+        self,
+        org_api: OrgApi,
+        mock_repo: MagicMock,
+        simple_org_content: str,
+    ) -> None:
+        """
+        Test appending text to a file without an image.
+
+        Expected behavior:
+        - Read existing content
+        - Append new text
+        - Update file with new content
+        """
+        logger.info("=" * 80)
+        logger.info("TEST: Append text to file - without image")
+        logger.info("=" * 80)
+
+        # Setup mock
+        mock_contents = MagicMock()
+        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.sha = "mock_sha_append"
+        mock_contents.path = "test.org"
+        mock_repo.get_contents.return_value = mock_contents
+        mock_repo.update_file.return_value = {"commit": {"sha": "updated_sha"}}
+
+        # Execute
+        new_text = "* New Entry: This is a new entry"
+        org_api.append_text_to_file(
+            file_path="test.org",
+            new_text=new_text,
+            commit_message="Append new entry"
+        )
+
+        # Verify
+        logger.info("Verifying update_file was called")
+        assert mock_repo.update_file.called, "Should call repo.update_file"
+
+        call_args = mock_repo.update_file.call_args
+        logger.debug(f"update_file called with: {call_args}")
+
+        # Verify the content has new text appended
+        updated_content = call_args[1]["content"]
+        logger.info(f"Updated content:\n{updated_content}")
+
+        assert new_text in updated_content, "New text should be in updated content"
+        assert simple_org_content in updated_content, "Original content should be preserved"
+
+        logger.info("Test PASSED")
+
+    @pytest.mark.unit
+    @pytest.mark.orgapi
+    def test_append_text_to_file_with_image(
+        self,
+        org_api: OrgApi,
+        mock_repo: MagicMock,
+        simple_org_content: str,
+    ) -> None:
+        """
+        Test appending text to a file with an image reference.
+
+        Expected behavior:
+        - Read existing content
+        - Append new text and image reference
+        - Update file with new content including org-mode image link
+        """
+        logger.info("=" * 80)
+        logger.info("TEST: Append text to file - with image")
+        logger.info("=" * 80)
+
+        # Setup mock
+        mock_contents = MagicMock()
+        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.sha = "mock_sha_append_img"
+        mock_contents.path = "test.org"
+        mock_repo.get_contents.return_value = mock_contents
+        mock_repo.update_file.return_value = {"commit": {"sha": "updated_sha_img"}}
+
+        # Execute
+        new_text = "* New Entry with Image"
+        image_filename = "pics/telegram/test_image.png"
+        org_api.append_text_to_file(
+            file_path="test.org",
+            new_text=new_text,
+            commit_message="Append entry with image",
+            image_filename=image_filename
+        )
+
+        # Verify
+        logger.info("Verifying update_file was called")
+        assert mock_repo.update_file.called, "Should call repo.update_file"
+
+        call_args = mock_repo.update_file.call_args
+        updated_content = call_args[1]["content"]
+        logger.info(f"Updated content:\n{updated_content}")
+
+        # Verify text and image reference are present
+        assert new_text in updated_content, "New text should be in updated content"
+        assert f"[[file:{image_filename}]]" in updated_content, "Image link should be in updated content"
+        assert "#+attr_html: :width 600px" in updated_content, "Image attributes should be in updated content"
+
+        logger.info("Test PASSED")
