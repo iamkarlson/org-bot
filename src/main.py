@@ -140,7 +140,8 @@ async def process_message(message: Message):
     message_text = get_text_from_message(message)
     commands = init_commands(get_bot)  # Initialize commands with bot getter
 
-    if message_text.startswith("/"):
+    # Check if the message is a command
+    if message.text and message.text.startswith("/"):
         # Commands are always processed, even from ignored chats
         command_text = (message.text or "").split("@")[
             0
@@ -204,11 +205,12 @@ def http_entrypoint(request: Request):
     """
     Incoming telegram webhook handler for a GCP Cloud Function.
     """
-    if request.method == "GET":
-        return {"statusCode": 200}
+    try:
+        if request.method == "GET":
+            return {"statusCode": 200}
 
-    if request.method == "POST":
-        try:
+
+        if request.method == "POST":
             incoming_data = request.get_json()
             logger.debug(f"incoming data: {incoming_data}")
             update_message = Update.de_json(incoming_data, get_bot())
@@ -218,10 +220,10 @@ def http_entrypoint(request: Request):
                 # Run async function with proper lifecycle management
                 asyncio.run(handle_telegram_update(message))
             return {"statusCode": 200}
-        except Exception as e:
-            sentry_sdk.capture_exception(e)
-            logger.exception("Error occurred but message wasn't processed")
-            return {"statusCode": 200}
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.exception("Error occurred but message wasn't processed")
+        return {"statusCode": 200}
 
     # Unprocessable entity
     abort(422)
