@@ -539,14 +539,14 @@ Another entry."""
         test_config: Dict[str, Any],
     ) -> None:
         """
-        Test the _find_top_level_entry method directly.
+        Test the find_top_level_entry method from org_api directly.
 
         Verifies:
         - Returns same entry if it's not a reply
         - Finds parent entry if current entry is a reply
         """
         logger.info("=" * 80)
-        logger.info("TEST: _find_top_level_entry method")
+        logger.info("TEST: find_top_level_entry method")
         logger.info("=" * 80)
 
         # Create a journal with nested structure
@@ -579,7 +579,7 @@ Different content"""
 
             # Test 1: Non-reply entry should return itself
             logger.info("Test 1: Non-reply entry")
-            line_num, level = reply_instance._find_top_level_entry(
+            line_num, level = reply_instance.org_api.find_top_level_entry(
                 test_config["journal_file"], 1, 1  # Line 1 is "* Entry:" (the original)
             )
             logger.info(f"Result: line {line_num}, level {level}")
@@ -588,14 +588,14 @@ Different content"""
 
             # Test 2: Reply entry should find its parent
             logger.info("Test 2: Reply entry")
-            line_num, level = reply_instance._find_top_level_entry(
+            line_num, level = reply_instance.org_api.find_top_level_entry(
                 test_config["journal_file"], 3, 2  # Line 3 is "** Reply:"
             )
             logger.info(f"Result: line {line_num}, level {level}")
             assert line_num == 1, "Should return parent entry line"
             assert level == 1, "Should return parent entry level"
 
-            logger.info("_find_top_level_entry method test PASSED")
+            logger.info("find_top_level_entry method test PASSED")
 
     @pytest.mark.unit
     @pytest.mark.reply
@@ -605,7 +605,7 @@ Different content"""
         test_config: Dict[str, Any],
     ) -> None:
         """
-        Test the _find_original_entry method directly.
+        Test the find_original_entry method from org_api directly.
 
         Verifies:
         - Correctly identifies line number
@@ -613,7 +613,7 @@ Different content"""
         - Returns None when not found
         """
         logger.info("=" * 80)
-        logger.info("TEST: _find_original_entry method")
+        logger.info("TEST: find_original_entry method")
         logger.info("=" * 80)
 
         with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_with_journal_entry):
@@ -626,7 +626,7 @@ Different content"""
 
         # Test finding an entry that exists
         original_link = "https://t.me/c/1234567890/100"
-        result = reply_instance._find_original_entry(original_link, test_config["journal_file"])
+        result = reply_instance.org_api.find_original_entry(original_link, test_config["journal_file"])
 
         logger.info(f"Find result: {result}")
         assert result is not None, "Should find the entry"
@@ -639,12 +639,12 @@ Different content"""
 
         # Test finding an entry that doesn't exist
         nonexistent_link = "https://t.me/c/9999999999/999"
-        result_not_found = reply_instance._find_original_entry(nonexistent_link, test_config["journal_file"])
+        result_not_found = reply_instance.org_api.find_original_entry(nonexistent_link, test_config["journal_file"])
 
         logger.info(f"Find result for nonexistent: {result_not_found}")
         assert result_not_found is None, "Should return None when entry not found"
 
-        logger.info("_find_original_entry method test PASSED")
+        logger.info("find_original_entry method test PASSED")
 
     @pytest.mark.unit
     @pytest.mark.reply

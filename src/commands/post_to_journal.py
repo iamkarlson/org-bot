@@ -37,17 +37,6 @@ class BasePostToGitJournal:
         # Use provided org_api or create a new one
         self.org_api = org_api if org_api is not None else OrgApi(self.repo)
 
-    def _append_text_to_file(
-        self, new_text: str, commit_message: str, filename: str = None
-    ):
-        """Wrapper method for backward compatibility. Uses org_api internally."""
-        self.org_api.append_text_to_file(
-            self.file_path,
-            new_text,
-            commit_message,
-            image_filename=filename
-        )
-
     def run(self, message: Message, file_path=None):
         """
         Adds a message to a file on github. File should exists on the github.
@@ -71,7 +60,12 @@ class BasePostToGitJournal:
         chat_id = message.chat.id
         commit_message = f"Message {message_id} from chat {chat_id}"
         new_text = self._get_org_item(message)
-        self._append_text_to_file(new_text, commit_message, filename)
+        self.org_api.append_text_to_file(
+            self.file_path,
+            new_text,
+            commit_message,
+            image_filename=filename
+        )
         return True
 
 
@@ -124,51 +118,6 @@ class PostReplyToEntry(BasePostToGitJournal):
         super().__init__(github_token, repo_name, file_path, org_api=org_api)
         self.todo_file_path = todo_file_path
 
-    def _find_original_entry(self, original_message_link: str, file_path: str) -> tuple[int, int] | None:
-        """
-        Searches for the original message in the specified file.
-        Returns (line_number, org_level) if found, None otherwise.
-
-        :param original_message_link: The Telegram message link to search for
-        :param file_path: The file to search in (journal.org or todo.org)
-        :return: Tuple of (line_number, org_level) or None
-        """
-        return self.org_api.find_original_entry(original_message_link, file_path)
-
-    def _find_top_level_entry(self, file_path: str, start_line: int, current_level: int) -> tuple[int, int]:
-        """
-        Find the top-level (non-reply) entry by searching backwards from the current position.
-        This ensures all replies are at the same level, regardless of whether replying to
-        an original entry or to another reply.
-
-        :param file_path: The file to search in
-        :param start_line: Line number to start searching from
-        :param current_level: Current org-mode level
-        :return: Tuple of (line_number, org_level) for the top-level entry
-        """
-        return self.org_api.find_top_level_entry(file_path, start_line, current_level)
-
-    def _insert_reply_after_entry(
-        self,
-        file_path: str,
-        line_number: int,
-        org_level: int,
-        reply_text: str,
-        commit_message: str
-    ):
-        """
-        Inserts a reply as a subheader after the original entry.
-
-        :param file_path: The file to modify
-        :param line_number: Line number where original entry was found
-        :param org_level: Org-mode level of the original entry
-        :param reply_text: The formatted reply text
-        :param commit_message: Git commit message
-        """
-        self.org_api.insert_reply_after_entry(
-            file_path, line_number, org_level, reply_text, commit_message
-        )
-
     def run(self, message: Message, file_path=None):
         """
         Handles a reply message by finding the original entry and adding this as a subheader.
@@ -207,7 +156,7 @@ class PostReplyToEntry(BasePostToGitJournal):
 
         for search_file, file_type in search_files:
             if search_file:
-                entry_location = self._find_original_entry(original_message_link, search_file)
+                entry_location = self.org_api.find_original_entry(original_message_link, search_file)
                 if entry_location:
                     logger.info(f"Found original entry in {file_type} file")
                     file_to_update = search_file
@@ -221,7 +170,7 @@ class PostReplyToEntry(BasePostToGitJournal):
         line_number, org_level = entry_location
 
         # Find the top-level (non-reply) entry to ensure all replies are at same level
-        top_line_number, top_org_level = self._find_top_level_entry(
+        top_line_number, top_org_level = self.org_api.find_top_level_entry(
             file_to_update, line_number, org_level
         )
 
@@ -242,7 +191,7 @@ class PostReplyToEntry(BasePostToGitJournal):
         # Insert the reply after the original entry
         # Note: We insert after the found entry (line_number) but use top_org_level
         # to determine where to insert (before next entry at same level as top-level)
-        self._insert_reply_after_entry(
+        self.org_api.insert_reply_after_entry(
             file_to_update,
             top_line_number,
             top_org_level,
