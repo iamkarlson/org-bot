@@ -2,10 +2,8 @@ import os
 from typing import Callable
 from telegram import Bot
 
-from .commands import (
-    StartCommand,
-    WebhookCommand,
-    InfoCommand,
+from .commands import StartCommand, WebhookCommand, InfoCommand
+from .actions import (
     PostToGitJournal,
     PostToTodo,
     PostReplyToEntry,
@@ -36,7 +34,7 @@ reply = PostReplyToEntry(
     github_token=github_token,
     repo_name=repo_name,
     file_path=file_path,
-    todo_file_path="todo.org"
+    todo_file_path="todo.org",
 )
 
 # Default action is to post to journal
