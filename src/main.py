@@ -141,9 +141,9 @@ async def process_message(message: Message):
     commands = init_commands(get_bot)  # Initialize commands with bot getter
 
     # Check if the message is a command
-    if message.text and message.text.startswith("/"):
+    if message_text.startswith("/"):
         # Commands are always processed, even from ignored chats
-        command_text = (message.text or "").split("@")[
+        command_text = (message_text or "").split("@")[
             0
         ]  # Split command and bot's name
         command = commands.get(command_text)
@@ -169,7 +169,7 @@ def process_non_command(message: Message, file_path=None):
         keyword = "reply"
         logger.info(
             f"Detected reply to message {message.reply_to_message.message_id}",
-            extra={"original_message_id": message.reply_to_message.message_id}
+            extra={"original_message_id": message.reply_to_message.message_id},
         )
     else:
         # Not a reply, check if it's a todo or journal entry
@@ -208,7 +208,6 @@ def http_entrypoint(request: Request):
     try:
         if request.method == "GET":
             return {"statusCode": 200}
-
 
         if request.method == "POST":
             incoming_data = request.get_json()
