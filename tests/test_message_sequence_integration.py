@@ -42,7 +42,9 @@ def _create_dummy_github_client():
 
 
 # Patch Github before any imports
-with patch('src.commands.post_to_journal.Github', return_value=_create_dummy_github_client()):
+with patch(
+    "src.actions.base_post_to_org_file.Github", return_value=_create_dummy_github_client()
+):
     from src.main import process_non_command
 
 
@@ -66,7 +68,7 @@ class TestMessageSequenceIntegration:
 
             def get_contents(self, path, ref="main"):
                 mock_contents = MagicMock()
-                mock_contents.decoded_content = self.content.encode('utf-8')
+                mock_contents.decoded_content = self.content.encode("utf-8")
                 mock_contents.sha = self.sha
                 mock_contents.path = path
                 logger.debug(f"get_contents called, current content:\n{self.content}")
@@ -128,7 +130,9 @@ class TestMessageSequenceIntegration:
             },
         ]
 
-    def _create_mock_message(self, msg_data: Dict[str, Any], previous_messages: List[Mock]) -> Mock:
+    def _create_mock_message(
+        self, msg_data: Dict[str, Any], previous_messages: List[Mock]
+    ) -> Mock:
         """
         Create a mock Telegram message from the data dict.
         If reply_to_message_id is set, link it to the corresponding previous message.
@@ -150,10 +154,14 @@ class TestMessageSequenceIntegration:
         if "reply_to_message_id" in msg_data:
             # Find the original message in previous_messages
             reply_to_id = msg_data["reply_to_message_id"]
-            original_msg = next((m for m in previous_messages if m.message_id == reply_to_id), None)
+            original_msg = next(
+                (m for m in previous_messages if m.message_id == reply_to_id), None
+            )
             if original_msg:
                 message.reply_to_message = original_msg
-                logger.debug(f"Message {msg_data['message_id']} replies to {reply_to_id}")
+                logger.debug(
+                    f"Message {msg_data['message_id']} replies to {reply_to_id}"
+                )
             else:
                 logger.warning(f"Could not find message {reply_to_id} to reply to")
                 message.reply_to_message = None
@@ -188,26 +196,26 @@ class TestMessageSequenceIntegration:
         previous_messages = []
         responses = []
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_client):
+        with patch("src.actions.base_post_to_org_file.Github", return_value=mock_client):
             # Import here to ensure patch is applied
-            from src.commands.post_to_journal import PostToGitJournal, PostToTodo, PostReplyToEntry
+            from src.actions.post_to_journal import PostToGitJournal
+            from src.actions.post_to_todo import PostToTodo
+            from src.actions.post_reply import PostReplyToEntry
 
             # Recreate the action instances with mocked GitHub
             journal = PostToGitJournal(
                 github_token="test_token",
                 repo_name="test/repo",
-                file_path="journal.org"
+                file_path="journal.org",
             )
             todo = PostToTodo(
-                github_token="test_token",
-                repo_name="test/repo",
-                file_path="todo.org"
+                github_token="test_token", repo_name="test/repo", file_path="todo.org"
             )
             reply = PostReplyToEntry(
                 github_token="test_token",
                 repo_name="test/repo",
                 file_path="journal.org",
-                todo_file_path="todo.org"
+                todo_file_path="todo.org",
             )
 
             # Mock the actions dict
@@ -219,14 +227,16 @@ class TestMessageSequenceIntegration:
 
             # Process each message in sequence
             for i, msg_data in enumerate(message_sequence):
-                logger.info(f"\n--- Processing message {i+1}/{len(message_sequence)}: {msg_data['name']} ---")
+                logger.info(
+                    f"\n--- Processing message {i+1}/{len(message_sequence)}: {msg_data['name']} ---"
+                )
 
                 # Create mock message
                 message = self._create_mock_message(msg_data, previous_messages)
                 previous_messages.append(message)
 
                 # Process the message with mocked actions
-                with patch('src.main.actions', test_actions):
+                with patch("src.main.actions", test_actions):
                     response = process_non_command(message, file_path=None)
 
                 logger.info(f"Response: {response}")
@@ -234,8 +244,9 @@ class TestMessageSequenceIntegration:
 
                 # Verify response
                 expected_response = msg_data["expected_response"]
-                assert response == expected_response, \
-                    f"Message {msg_data['name']}: expected '{expected_response}', got '{response}'"
+                assert (
+                    response == expected_response
+                ), f"Message {msg_data['name']}: expected '{expected_response}', got '{response}'"
 
                 logger.info(f"✓ Response matches expected: {response}")
 
@@ -245,25 +256,41 @@ class TestMessageSequenceIntegration:
         logger.info(f"Final content:\n{final_content}")
 
         # Verify all messages are in the file
-        assert "https://t.me/c/1234567890/100" in final_content, "Original entry should be in file"
-        assert "This is my original journal entry" in final_content, "Original text should be in file"
+        assert (
+            "https://t.me/c/1234567890/100" in final_content
+        ), "Original entry should be in file"
+        assert (
+            "This is my original journal entry" in final_content
+        ), "Original text should be in file"
 
-        assert "https://t.me/c/1234567890/200" in final_content, "First reply should be in file"
-        assert "This is a reply to the original entry" in final_content, "First reply text should be in file"
+        assert (
+            "https://t.me/c/1234567890/200" in final_content
+        ), "First reply should be in file"
+        assert (
+            "This is a reply to the original entry" in final_content
+        ), "First reply text should be in file"
 
-        assert "https://t.me/c/1234567890/300" in final_content, "Second reply should be in file"
-        assert "This is a reply to the first reply" in final_content, "Second reply text should be in file"
+        assert (
+            "https://t.me/c/1234567890/300" in final_content
+        ), "Second reply should be in file"
+        assert (
+            "This is a reply to the first reply" in final_content
+        ), "Second reply text should be in file"
 
         # Verify proper nesting - all replies should be at ** level
         reply_count = final_content.count("** Reply:")
         logger.info(f"Number of ** Reply: entries: {reply_count}")
-        assert reply_count == 2, f"Should have 2 replies at ** level, found {reply_count}"
+        assert (
+            reply_count == 2
+        ), f"Should have 2 replies at ** level, found {reply_count}"
 
         # Should NOT have *** level replies
         assert "*** Reply:" not in final_content, "Should not have *** level replies"
 
         # Verify all responses were generated
-        assert len(responses) == len(message_sequence), "Should have response for each message"
+        assert len(responses) == len(
+            message_sequence
+        ), "Should have response for each message"
         assert all(r is not None for r in responses), "All responses should be non-None"
 
         logger.info("\n✓ All messages processed correctly")
@@ -289,14 +316,14 @@ class TestMessageSequenceIntegration:
         mock_client = MagicMock()
         mock_client.get_repo.return_value = mock_github_repo_with_state
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_client):
-            from src.commands.post_to_journal import PostReplyToEntry
+        with patch("src.actions.base_post_to_org_file.Github", return_value=mock_client):
+            from src.actions.post_reply import PostReplyToEntry
 
             reply_instance = PostReplyToEntry(
                 github_token="test_token",
                 repo_name="test/repo",
                 file_path="journal.org",
-                todo_file_path="todo.org"
+                todo_file_path="todo.org",
             )
 
             # First, add an original entry
@@ -330,17 +357,22 @@ Original entry"""
             reply_message.chat = reply_chat
 
             test_actions = {
-                "reply": {"function": reply_instance.run, "response": "Added reply to entry!"},
+                "reply": {
+                    "function": reply_instance.run,
+                    "response": "Added reply to entry!",
+                },
             }
 
             # Process the reply
-            with patch('src.main.actions', test_actions):
+            with patch("src.main.actions", test_actions):
                 response = process_non_command(reply_message, file_path=None)
 
             logger.info(f"Response from reply: {response}")
 
             # Verify response is not None
             assert response is not None, "Reply should generate a response"
-            assert response == "Added reply to entry!", f"Expected 'Added reply to entry!', got '{response}'"
+            assert (
+                response == "Added reply to entry!"
+            ), f"Expected 'Added reply to entry!', got '{response}'"
 
             logger.info("✓ Reply generated correct response")

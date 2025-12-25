@@ -15,7 +15,7 @@ from typing import Any, Dict
 
 import pytest
 
-from src.commands.post_to_journal import PostToTodo
+from src.actions.post_to_todo import PostToTodo
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class TestPostToTodo:
         """Create a PostToTodo instance with mocked GitHub client."""
         logger.info("Creating PostToTodo instance for testing")
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client):
+        with patch('src.actions.base_post_to_org_file.Github', return_value=mock_github_client):
             instance = PostToTodo(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
