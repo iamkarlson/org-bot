@@ -16,7 +16,8 @@ from typing import Any, Dict
 
 import pytest
 
-from src.commands.post_to_journal import PostReplyToEntry, PostToGitJournal
+from src.actions.post_reply import PostReplyToEntry
+from src.actions.post_to_journal import PostToGitJournal
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ This is the original message that we will reply to.
 This is another entry."""
 
         mock_contents = MagicMock()
-        mock_contents.decoded_content = journal_content.encode('utf-8')
+        mock_contents.decoded_content = journal_content.encode("utf-8")
         mock_contents.sha = "mock_sha_journal"
         mock_contents.path = "test_journal.org"
 
@@ -87,10 +88,10 @@ Some additional details about the pull request
         def get_contents_side_effect(path, ref=None):
             mock_contents = MagicMock()
             if "journal" in path:
-                mock_contents.decoded_content = journal_content.encode('utf-8')
+                mock_contents.decoded_content = journal_content.encode("utf-8")
                 mock_contents.path = "test_journal.org"
             else:  # todo file
-                mock_contents.decoded_content = todo_content.encode('utf-8')
+                mock_contents.decoded_content = todo_content.encode("utf-8")
                 mock_contents.path = "test_todo.org"
             mock_contents.sha = f"mock_sha_{path}"
             return mock_contents
@@ -123,10 +124,10 @@ Some other message."""
         def get_contents_side_effect(path, ref=None):
             mock_contents = MagicMock()
             if "journal" in path:
-                mock_contents.decoded_content = journal_content.encode('utf-8')
+                mock_contents.decoded_content = journal_content.encode("utf-8")
                 mock_contents.path = "test_journal.org"
             else:  # todo file
-                mock_contents.decoded_content = todo_content.encode('utf-8')
+                mock_contents.decoded_content = todo_content.encode("utf-8")
                 mock_contents.path = "test_todo.org"
             mock_contents.sha = f"mock_sha_{path}"
             return mock_contents
@@ -211,7 +212,10 @@ Some other message."""
         logger.info("TEST: Reply to journal entry")
         logger.info("=" * 80)
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_with_journal_entry):
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_with_journal_entry,
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -230,13 +234,17 @@ Some other message."""
 
         # Verify result
         logger.info(f"Result: {result}")
-        assert result is True, "Expected run() to return True for successful reply posting"
+        assert (
+            result is True
+        ), "Expected run() to return True for successful reply posting"
 
         # Verify GitHub interactions
         logger.info("Verifying GitHub API interactions")
 
         # Should have called get_contents to search for original entry
-        assert reply_instance.repo.get_contents.called, "Should call get_contents to search"
+        assert (
+            reply_instance.repo.get_contents.called
+        ), "Should call get_contents to search"
 
         # Should have called update_file to insert the reply
         reply_instance.repo.update_file.assert_called_once()
@@ -250,18 +258,26 @@ Some other message."""
         logger.debug(f"Updated content:\n{updated_content}")
 
         # Verify the reply text appears
-        assert message.text in updated_content, "Reply text should be in updated content"
+        assert (
+            message.text in updated_content
+        ), "Reply text should be in updated content"
 
         # Verify it's a nested entry (** Reply:)
-        assert "** Reply:" in updated_content, "Should contain nested reply header (** level)"
+        assert (
+            "** Reply:" in updated_content
+        ), "Should contain nested reply header (** level)"
 
         # Verify it contains the reply message link
-        assert "https://t.me/c/1234567890/200" in updated_content, "Should contain reply message link"
+        assert (
+            "https://t.me/c/1234567890/200" in updated_content
+        ), "Should contain reply message link"
 
         # Verify the commit message
         commit_message = update_call_args[1]["message"]
         logger.info(f"Commit message: {commit_message}")
-        assert "Reply to message 100" in commit_message, "Commit should reference original message"
+        assert (
+            "Reply to message 100" in commit_message
+        ), "Commit should reference original message"
 
         logger.info("Reply to journal entry test PASSED")
 
@@ -286,7 +302,10 @@ Some other message."""
         logger.info("=" * 80)
 
         # Patch Github at a persistent level to handle fallback scenarios
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_with_todo_entry) as mock_github:
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_with_todo_entry,
+        ) as mock_github:
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -305,7 +324,9 @@ Some other message."""
 
             # Verify result
             logger.info(f"Result: {result}")
-            assert result is True, "Expected run() to return True for successful reply posting"
+            assert (
+                result is True
+            ), "Expected run() to return True for successful reply posting"
 
             # Verify update was called
             assert reply_instance.repo.update_file.called, "Should update file"
@@ -316,10 +337,14 @@ Some other message."""
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify the reply is nested correctly (*** level for TODO which is **)
-            assert "*** Reply:" in updated_content, "Should contain nested reply header (*** level)"
+            assert (
+                "*** Reply:" in updated_content
+            ), "Should contain nested reply header (*** level)"
 
             # Verify reply text
-            assert message.text in updated_content, "Reply text should be in updated content"
+            assert (
+                message.text in updated_content
+            ), "Reply text should be in updated content"
 
             logger.info("Reply to TODO entry test PASSED")
 
@@ -343,7 +368,10 @@ Some other message."""
         logger.info("TEST: Reply with original message not found (fallback)")
         logger.info("=" * 80)
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_no_entry):
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_no_entry,
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -362,14 +390,18 @@ Some other message."""
             assert result is True, "Expected run() to return True (fallback to journal)"
 
             # Verify it called update_file (for the fallback journal entry)
-            assert reply_instance.repo.update_file.called, "Should update file with fallback entry"
+            assert (
+                reply_instance.repo.update_file.called
+            ), "Should update file with fallback entry"
             update_call_args = reply_instance.repo.update_file.call_args
 
             updated_content = update_call_args[1]["content"]
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify it's a regular journal entry, not a nested reply
-            assert "* Entry:" in updated_content, "Should create regular journal entry (fallback)"
+            assert (
+                "* Entry:" in updated_content
+            ), "Should create regular journal entry (fallback)"
 
             # Should NOT have the nested Reply format
             assert "** Reply:" not in updated_content, "Should not be a nested reply"
@@ -395,7 +427,10 @@ Some other message."""
         logger.info("TEST: PostReplyToEntry without reply_to_message")
         logger.info("=" * 80)
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_no_entry):
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_no_entry,
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -470,7 +505,7 @@ Another entry."""
         client.get_repo.return_value = mock_repo
 
         mock_contents = MagicMock()
-        mock_contents.decoded_content = journal_content.encode('utf-8')
+        mock_contents.decoded_content = journal_content.encode("utf-8")
         mock_contents.sha = "mock_sha_reply"
         mock_contents.path = "test_journal.org"
 
@@ -496,7 +531,7 @@ Another entry."""
         chat.id = 1234567890
         message.chat = chat
 
-        with patch('src.commands.post_to_journal.Github', return_value=client):
+        with patch("src.actions.base_post_to_org_file.Github", return_value=client):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -504,7 +539,9 @@ Another entry."""
                 todo_file_path=test_config["todo_file"],
             )
 
-            logger.info(f"Replying to message {original_message.message_id} (which is itself a reply)")
+            logger.info(
+                f"Replying to message {original_message.message_id} (which is itself a reply)"
+            )
             result = reply_instance.run(message=message, file_path=None)
 
             # Verify result
@@ -524,11 +561,17 @@ Another entry."""
             assert reply_count == 2, "Should have 2 replies at ** level"
 
             # Should NOT have *** Reply: (no deeper nesting)
-            assert "*** Reply:" not in updated_content, "Should NOT have *** level replies"
+            assert (
+                "*** Reply:" not in updated_content
+            ), "Should NOT have *** level replies"
 
             # Verify both replies are present
-            assert "https://t.me/c/1234567890/200" in updated_content, "First reply link should be present"
-            assert "https://t.me/c/1234567890/300" in updated_content, "Second reply link should be present"
+            assert (
+                "https://t.me/c/1234567890/200" in updated_content
+            ), "First reply link should be present"
+            assert (
+                "https://t.me/c/1234567890/300" in updated_content
+            ), "Second reply link should be present"
 
             logger.info("Reply to reply test PASSED - all replies stay at same level")
 
@@ -563,13 +606,13 @@ Different content"""
         client.get_repo.return_value = mock_repo
 
         mock_contents = MagicMock()
-        mock_contents.decoded_content = journal_content.encode('utf-8')
+        mock_contents.decoded_content = journal_content.encode("utf-8")
         mock_contents.sha = "mock_sha"
         mock_contents.path = "test_journal.org"
 
         mock_repo.get_contents.return_value = mock_contents
 
-        with patch('src.commands.post_to_journal.Github', return_value=client):
+        with patch("src.actions.base_post_to_org_file.Github", return_value=client):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -616,7 +659,10 @@ Different content"""
         logger.info("TEST: find_original_entry method")
         logger.info("=" * 80)
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_with_journal_entry):
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_with_journal_entry,
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -626,7 +672,9 @@ Different content"""
 
         # Test finding an entry that exists
         original_link = "https://t.me/c/1234567890/100"
-        result = reply_instance.org_api.find_original_entry(original_link, test_config["journal_file"])
+        result = reply_instance.org_api.find_original_entry(
+            original_link, test_config["journal_file"]
+        )
 
         logger.info(f"Find result: {result}")
         assert result is not None, "Should find the entry"
@@ -639,7 +687,9 @@ Different content"""
 
         # Test finding an entry that doesn't exist
         nonexistent_link = "https://t.me/c/9999999999/999"
-        result_not_found = reply_instance.org_api.find_original_entry(nonexistent_link, test_config["journal_file"])
+        result_not_found = reply_instance.org_api.find_original_entry(
+            nonexistent_link, test_config["journal_file"]
+        )
 
         logger.info(f"Find result for nonexistent: {result_not_found}")
         assert result_not_found is None, "Should return None when entry not found"
@@ -666,7 +716,10 @@ Different content"""
         logger.info("TEST: Reply insertion position")
         logger.info("=" * 80)
 
-        with patch('src.commands.post_to_journal.Github', return_value=mock_github_client_with_journal_entry):
+        with patch(
+            "src.actions.base_post_to_org_file.Github",
+            return_value=mock_github_client_with_journal_entry,
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -684,7 +737,7 @@ Different content"""
         update_call_args = reply_instance.repo.update_file.call_args
         updated_content = update_call_args[1]["content"]
 
-        lines = updated_content.split('\n')
+        lines = updated_content.split("\n")
         logger.info(f"Updated content has {len(lines)} lines")
 
         # Find where the reply was inserted
@@ -707,17 +760,25 @@ Different content"""
         assert original_entry_index is not None, "Should find original entry"
         logger.info(f"Original entry at line {original_entry_index}")
 
-        assert reply_line_index > original_entry_index, "Reply should come after original entry"
+        assert (
+            reply_line_index > original_entry_index
+        ), "Reply should come after original entry"
 
         # Verify it comes before the next top-level entry
         next_entry_index = None
         for i, line in enumerate(lines):
-            if i > original_entry_index and "* Entry:" in line and "https://t.me/c/1234567890/101" in line:
+            if (
+                i > original_entry_index
+                and "* Entry:" in line
+                and "https://t.me/c/1234567890/101" in line
+            ):
                 next_entry_index = i
                 break
 
         if next_entry_index:
             logger.info(f"Next entry at line {next_entry_index}")
-            assert reply_line_index < next_entry_index, "Reply should come before next entry"
+            assert (
+                reply_line_index < next_entry_index
+            ), "Reply should come before next entry"
 
         logger.info("Insertion position test PASSED")

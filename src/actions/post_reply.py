@@ -12,7 +12,8 @@ from telegram import Message
 from ..utils import get_text_from_message
 from ..org_api import OrgApi
 
-from ..base_post_to_org_file import BasePostToGitJournal
+from .base_post_to_org_file import BasePostToGitJournal
+from .post_to_journal import PostToGitJournal
 
 logger = logging.getLogger(__name__)
 
