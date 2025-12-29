@@ -40,12 +40,7 @@ def _create_dummy_github_client():
     return mock_client
 
 
-# Patch Github before any imports
-with patch(
-    "src.actions.base_post_to_org_file.Github",
-    return_value=_create_dummy_github_client(),
-):
-    from src.main import process_non_command
+# No imports needed here - we'll import inside test functions after patching
 
 
 class TestMessageSequenceIntegration:
@@ -172,7 +167,8 @@ class TestMessageSequenceIntegration:
 
     @pytest.mark.integration
     @pytest.mark.sequence
-    def test_message_sequence_full_flow(
+    @pytest.mark.asyncio
+    async def test_message_sequence_full_flow(
         self,
         mock_github_repo_with_state: MagicMock,
         message_sequence: List[Dict[str, Any]],
@@ -200,32 +196,26 @@ class TestMessageSequenceIntegration:
             "src.actions.base_post_to_org_file.Github", return_value=mock_client
         ):
             # Import here to ensure patch is applied
-            from src.actions.post_to_journal import PostToGitJournal
-            from src.actions.post_to_todo import PostToTodo
-            from src.actions.post_reply import PostReplyToEntry
+            from src.bot import OrgBot
+            from src.config import BotConfig, GitHubConfig
 
-            # Recreate the action instances with mocked GitHub
-            journal = PostToGitJournal(
-                github_token="test_token",
-                repo_name="test/repo",
-                file_path="journal.org",
+            # Create test configs
+            bot_config = BotConfig(
+                bot_token="test_bot_token",
+                authorized_chat_ids=[1234567890],
+                ignored_chat_ids=[],
+                forward_unauthorized_to=None,
+                sentry_dsn="",
             )
-            todo = PostToTodo(
-                github_token="test_token", repo_name="test/repo", file_path="todo.org"
-            )
-            reply = PostReplyToEntry(
-                github_token="test_token",
+            github_config = GitHubConfig(
+                token="test_token",
                 repo_name="test/repo",
-                file_path="journal.org",
-                todo_file_path="todo.org",
+                journal_file="journal.org",
+                todo_file="todo.org",
             )
 
-            # Mock the actions dict
-            test_actions = {
-                "journal": {"function": journal.run, "response": "Added to journal!"},
-                "todo": {"function": todo.run, "response": "Added to todo list!"},
-                "reply": {"function": reply.run, "response": "Added reply to entry!"},
-            }
+            # Create OrgBot instance with test configs
+            org_bot = OrgBot(bot_config=bot_config, github_config=github_config)
 
             # Process each message in sequence
             for i, msg_data in enumerate(message_sequence):
@@ -237,9 +227,10 @@ class TestMessageSequenceIntegration:
                 message = self._create_mock_message(msg_data, previous_messages)
                 previous_messages.append(message)
 
-                # Process the message with mocked actions
-                with patch("src.main.actions", test_actions):
-                    response = process_non_command(message, file_path=None)
+                # Process the message using OrgBot's internal method
+                response = await org_bot._handle_action(
+                    message, message.text, file_path=None
+                )
 
                 logger.info(f"Response: {response}")
                 responses.append(response)
@@ -302,7 +293,8 @@ class TestMessageSequenceIntegration:
 
     @pytest.mark.integration
     @pytest.mark.sequence
-    def test_reply_response_not_none(
+    @pytest.mark.asyncio
+    async def test_reply_response_not_none(
         self,
         mock_github_repo_with_state: MagicMock,
         test_config: Dict[str, Any],
@@ -360,16 +352,30 @@ Original entry"""
             reply_chat.id = 1234567890
             reply_message.chat = reply_chat
 
-            test_actions = {
-                "reply": {
-                    "function": reply_instance.run,
-                    "response": "Added reply to entry!",
-                },
-            }
+            # Create OrgBot instance
+            from src.bot import OrgBot
+            from src.config import BotConfig, GitHubConfig
+
+            bot_config = BotConfig(
+                bot_token="test_bot_token",
+                authorized_chat_ids=[1234567890],
+                ignored_chat_ids=[],
+                forward_unauthorized_to=None,
+                sentry_dsn="",
+            )
+            github_config = GitHubConfig(
+                token="test_token",
+                repo_name="test/repo",
+                journal_file="journal.org",
+                todo_file="todo.org",
+            )
+
+            org_bot = OrgBot(bot_config=bot_config, github_config=github_config)
 
             # Process the reply
-            with patch("src.main.actions", test_actions):
-                response = process_non_command(reply_message, file_path=None)
+            response = await org_bot._handle_action(
+                reply_message, reply_message.text, file_path=None
+            )
 
             logger.info(f"Response from reply: {response}")
 
