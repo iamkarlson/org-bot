@@ -1,17 +1,18 @@
 # https://taskfile.dev
 
-version: '3'
-
+version: "3"
 
 env:
   ENV: production
 
-dotenv: ['config/{{.ENV}}/secrets.env']
+dotenv: ["config/{{.ENV}}/secrets.env"]
+
+vars:
+  TOOLS_DIRECTORY: ".bin"
 
 tasks:
   default:
     cmds:
-      
       - echo "env is activated using pyenv"
     silent: true
 
@@ -94,3 +95,10 @@ tasks:
     cmds:
       - uv run pytest-watch tests/ -v
     silent: false
+
+  structurizr:
+    desc: "Run Structurizr Lite server for C4 diagrams"
+    dir: "docs/c4"
+    cmds:
+      - docker compose down
+      - docker compose up -d
