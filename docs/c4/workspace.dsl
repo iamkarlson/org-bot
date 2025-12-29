@@ -122,7 +122,19 @@ workspace "Org Bot" "Architecture model for Org Bot system" {
                     tags "Component"
                 }
 
+            }
+
+            actions = container "Actions" "Journal, todo, and reply actions module" "Python" {
+                tags "Module"
                 postToJournal = component "Post to Journal" "Handles posting entries to journal" "Python" {
+                    tags "Component"
+                }
+
+                postToTodo = component "Post to Todo" "Handles posting entries to todo list" "Python" {
+                    tags "Component"
+                }
+
+                postReply = component "Post Reply" "Handles posting replies to entries" "Python" {
                     tags "Component"
                 }
             }
