@@ -4,12 +4,9 @@ I will use the github api to do this.
 """
 
 import logging
-import re
-from datetime import datetime
 
 from github import Github, Auth
 from telegram import Message
-from ..utils import get_text_from_message
 from ..org_api import OrgApi
 
 logger = logging.getLogger(__name__)

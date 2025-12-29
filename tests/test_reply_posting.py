@@ -17,7 +17,6 @@ from typing import Any, Dict
 import pytest
 
 from src.actions.post_reply import PostReplyToEntry
-from src.actions.post_to_journal import PostToGitJournal
 
 logger = logging.getLogger(__name__)
 
@@ -234,17 +233,17 @@ Some other message."""
 
         # Verify result
         logger.info(f"Result: {result}")
-        assert (
-            result is True
-        ), "Expected run() to return True for successful reply posting"
+        assert result is True, (
+            "Expected run() to return True for successful reply posting"
+        )
 
         # Verify GitHub interactions
         logger.info("Verifying GitHub API interactions")
 
         # Should have called get_contents to search for original entry
-        assert (
-            reply_instance.repo.get_contents.called
-        ), "Should call get_contents to search"
+        assert reply_instance.repo.get_contents.called, (
+            "Should call get_contents to search"
+        )
 
         # Should have called update_file to insert the reply
         reply_instance.repo.update_file.assert_called_once()
@@ -258,26 +257,26 @@ Some other message."""
         logger.debug(f"Updated content:\n{updated_content}")
 
         # Verify the reply text appears
-        assert (
-            message.text in updated_content
-        ), "Reply text should be in updated content"
+        assert message.text in updated_content, (
+            "Reply text should be in updated content"
+        )
 
         # Verify it's a nested entry (** Reply:)
-        assert (
-            "** Reply:" in updated_content
-        ), "Should contain nested reply header (** level)"
+        assert "** Reply:" in updated_content, (
+            "Should contain nested reply header (** level)"
+        )
 
         # Verify it contains the reply message link
-        assert (
-            "https://t.me/c/1234567890/200" in updated_content
-        ), "Should contain reply message link"
+        assert "https://t.me/c/1234567890/200" in updated_content, (
+            "Should contain reply message link"
+        )
 
         # Verify the commit message
         commit_message = update_call_args[1]["message"]
         logger.info(f"Commit message: {commit_message}")
-        assert (
-            "Reply to message 100" in commit_message
-        ), "Commit should reference original message"
+        assert "Reply to message 100" in commit_message, (
+            "Commit should reference original message"
+        )
 
         logger.info("Reply to journal entry test PASSED")
 
@@ -305,7 +304,7 @@ Some other message."""
         with patch(
             "src.actions.base_post_to_org_file.Github",
             return_value=mock_github_client_with_todo_entry,
-        ) as mock_github:
+        ):
             reply_instance = PostReplyToEntry(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -324,9 +323,9 @@ Some other message."""
 
             # Verify result
             logger.info(f"Result: {result}")
-            assert (
-                result is True
-            ), "Expected run() to return True for successful reply posting"
+            assert result is True, (
+                "Expected run() to return True for successful reply posting"
+            )
 
             # Verify update was called
             assert reply_instance.repo.update_file.called, "Should update file"
@@ -337,14 +336,14 @@ Some other message."""
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify the reply is nested correctly (*** level for TODO which is **)
-            assert (
-                "*** Reply:" in updated_content
-            ), "Should contain nested reply header (*** level)"
+            assert "*** Reply:" in updated_content, (
+                "Should contain nested reply header (*** level)"
+            )
 
             # Verify reply text
-            assert (
-                message.text in updated_content
-            ), "Reply text should be in updated content"
+            assert message.text in updated_content, (
+                "Reply text should be in updated content"
+            )
 
             logger.info("Reply to TODO entry test PASSED")
 
@@ -390,18 +389,18 @@ Some other message."""
             assert result is True, "Expected run() to return True (fallback to journal)"
 
             # Verify it called update_file (for the fallback journal entry)
-            assert (
-                reply_instance.repo.update_file.called
-            ), "Should update file with fallback entry"
+            assert reply_instance.repo.update_file.called, (
+                "Should update file with fallback entry"
+            )
             update_call_args = reply_instance.repo.update_file.call_args
 
             updated_content = update_call_args[1]["content"]
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify it's a regular journal entry, not a nested reply
-            assert (
-                "* Entry:" in updated_content
-            ), "Should create regular journal entry (fallback)"
+            assert "* Entry:" in updated_content, (
+                "Should create regular journal entry (fallback)"
+            )
 
             # Should NOT have the nested Reply format
             assert "** Reply:" not in updated_content, "Should not be a nested reply"
@@ -561,17 +560,17 @@ Another entry."""
             assert reply_count == 2, "Should have 2 replies at ** level"
 
             # Should NOT have *** Reply: (no deeper nesting)
-            assert (
-                "*** Reply:" not in updated_content
-            ), "Should NOT have *** level replies"
+            assert "*** Reply:" not in updated_content, (
+                "Should NOT have *** level replies"
+            )
 
             # Verify both replies are present
-            assert (
-                "https://t.me/c/1234567890/200" in updated_content
-            ), "First reply link should be present"
-            assert (
-                "https://t.me/c/1234567890/300" in updated_content
-            ), "Second reply link should be present"
+            assert "https://t.me/c/1234567890/200" in updated_content, (
+                "First reply link should be present"
+            )
+            assert "https://t.me/c/1234567890/300" in updated_content, (
+                "Second reply link should be present"
+            )
 
             logger.info("Reply to reply test PASSED - all replies stay at same level")
 
@@ -623,7 +622,9 @@ Different content"""
             # Test 1: Non-reply entry should return itself
             logger.info("Test 1: Non-reply entry")
             line_num, level = reply_instance.org_api.find_top_level_entry(
-                test_config["journal_file"], 1, 1  # Line 1 is "* Entry:" (the original)
+                test_config["journal_file"],
+                1,
+                1,  # Line 1 is "* Entry:" (the original)
             )
             logger.info(f"Result: line {line_num}, level {level}")
             assert line_num == 1, "Should return same line for non-reply entry"
@@ -632,7 +633,9 @@ Different content"""
             # Test 2: Reply entry should find its parent
             logger.info("Test 2: Reply entry")
             line_num, level = reply_instance.org_api.find_top_level_entry(
-                test_config["journal_file"], 3, 2  # Line 3 is "** Reply:"
+                test_config["journal_file"],
+                3,
+                2,  # Line 3 is "** Reply:"
             )
             logger.info(f"Result: line {line_num}, level {level}")
             assert line_num == 1, "Should return parent entry line"
@@ -760,9 +763,9 @@ Different content"""
         assert original_entry_index is not None, "Should find original entry"
         logger.info(f"Original entry at line {original_entry_index}")
 
-        assert (
-            reply_line_index > original_entry_index
-        ), "Reply should come after original entry"
+        assert reply_line_index > original_entry_index, (
+            "Reply should come after original entry"
+        )
 
         # Verify it comes before the next top-level entry
         next_entry_index = None
@@ -777,8 +780,8 @@ Different content"""
 
         if next_entry_index:
             logger.info(f"Next entry at line {next_entry_index}")
-            assert (
-                reply_line_index < next_entry_index
-            ), "Reply should come before next entry"
+            assert reply_line_index < next_entry_index, (
+                "Reply should come before next entry"
+            )
 
         logger.info("Insertion position test PASSED")

@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -37,14 +37,14 @@ def configure_verbose_logging() -> None:
 
     # Very detailed formatter
     formatter = logging.Formatter(
-        fmt='%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)-30s] %(funcName)-25s:%(lineno)-4d - %(message)s',
-        datefmt='%Y-%m-%d_%H:%M:%S'
+        fmt="%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)-30s] %(funcName)-25s:%(lineno)-4d - %(message)s",
+        datefmt="%Y-%m-%d_%H:%M:%S",
     )
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
     # Also configure specific loggers
-    for logger_name in ['src', 'telegram', 'github', 'urllib3']:
+    for logger_name in ["src", "telegram", "github", "urllib3"]:
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.DEBUG)
 
@@ -146,7 +146,9 @@ def mock_telegram_message_text() -> Mock:
     chat.id = 1234567890
     message.chat = chat
 
-    logging.debug(f"Mock message created - ID: {message.message_id}, Chat ID: {chat.id}")
+    logging.debug(
+        f"Mock message created - ID: {message.message_id}, Chat ID: {chat.id}"
+    )
     logging.debug(f"Message text: {message.text}")
 
     return message
@@ -185,7 +187,9 @@ def mock_telegram_message_photo() -> Mock:
     chat.id = 1234567890
     message.chat = chat
 
-    logging.debug(f"Mock photo message created - ID: {message.message_id}, Chat ID: {chat.id}")
+    logging.debug(
+        f"Mock photo message created - ID: {message.message_id}, Chat ID: {chat.id}"
+    )
     logging.debug(f"Message caption: {message.caption}")
     logging.debug(f"Photo file_id: {photo.file_id}")
 
@@ -224,9 +228,13 @@ def mock_telegram_message_document() -> Mock:
     chat.id = 1234567890
     message.chat = chat
 
-    logging.debug(f"Mock document message created - ID: {message.message_id}, Chat ID: {chat.id}")
+    logging.debug(
+        f"Mock document message created - ID: {message.message_id}, Chat ID: {chat.id}"
+    )
     logging.debug(f"Message caption: {message.caption}")
-    logging.debug(f"Document file_id: {document.file_id}, filename: {document.file_name}")
+    logging.debug(
+        f"Document file_id: {document.file_id}, filename: {document.file_name}"
+    )
 
     return message
 
@@ -235,7 +243,11 @@ def mock_telegram_message_document() -> Mock:
 def mock_github_token() -> str:
     """Return a mock GitHub token or get from environment."""
     token = os.getenv("GITHUB_TOKEN") or "mock_github_token_for_testing"
-    logging.debug(f"Using GitHub token: {token[:10]}..." if len(token) > 10 else "Using mock token")
+    logging.debug(
+        f"Using GitHub token: {token[:10]}..."
+        if len(token) > 10
+        else "Using mock token"
+    )
     return token
 
 
@@ -260,7 +272,9 @@ def test_config() -> Dict[str, Any]:
     logging.debug("Test configuration:")
     for key, value in config.items():
         if "token" in key.lower():
-            logging.debug(f"  {key}: {value[:10]}..." if len(str(value)) > 10 else f"  {key}: ***")
+            logging.debug(
+                f"  {key}: {value[:10]}..." if len(str(value)) > 10 else f"  {key}: ***"
+            )
         else:
             logging.debug(f"  {key}: {value}")
 

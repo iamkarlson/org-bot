@@ -9,8 +9,7 @@ Tests cover:
 """
 
 import logging
-from unittest.mock import MagicMock, Mock
-from typing import Any, Dict
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -88,7 +87,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute
@@ -127,7 +126,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute
@@ -160,7 +159,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = todo_org_content.encode('utf-8')
+        mock_contents.decoded_content = todo_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute
@@ -229,7 +228,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute - line 1 is "* Entry:" (not a reply)
@@ -264,7 +263,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = nested_org_content.encode('utf-8')
+        mock_contents.decoded_content = nested_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute - line 3 is "** Reply:" (first reply)
@@ -274,7 +273,9 @@ More details."""
         logger.info(f"Result: {result}")
         line_number, org_level = result
 
-        logger.info(f"Found top-level entry at line {line_number} with level {org_level}")
+        logger.info(
+            f"Found top-level entry at line {line_number} with level {org_level}"
+        )
         assert line_number == 1, "Should find parent entry at line 1"
         assert org_level == 1, "Parent entry should have level 1"
 
@@ -300,7 +301,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = nested_org_content.encode('utf-8')
+        mock_contents.decoded_content = nested_org_content.encode("utf-8")
         mock_repo.get_contents.return_value = mock_contents
 
         # Execute - line 5 is the second "** Reply:"
@@ -337,7 +338,7 @@ More details."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_contents.sha = "mock_sha_123"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -350,7 +351,7 @@ More details."""
             1,  # line_number
             1,  # org_level
             reply_text,
-            "Test commit message"
+            "Test commit message",
         )
 
         # Verify update_file was called
@@ -418,20 +419,22 @@ Another entry."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = content_with_lines.encode('utf-8')
+        mock_contents.decoded_content = content_with_lines.encode("utf-8")
         mock_contents.sha = "mock_sha_456"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
         mock_repo.update_file.return_value = {"commit": {"sha": "new_sha"}}
 
         # Execute
-        reply_text = "** Reply: [[https://t.me/c/1234567890/200][2025-12-17 11:00]]\nReply text."
+        reply_text = (
+            "** Reply: [[https://t.me/c/1234567890/200][2025-12-17 11:00]]\nReply text."
+        )
         org_api.insert_reply_after_entry(
             "test.org",
             1,  # line_number (first entry)
             1,  # org_level
             reply_text,
-            "Insert reply commit"
+            "Insert reply commit",
         )
 
         # Verify
@@ -494,7 +497,7 @@ This is the only entry."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = single_entry_content.encode('utf-8')
+        mock_contents.decoded_content = single_entry_content.encode("utf-8")
         mock_contents.sha = "mock_sha_789"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -507,7 +510,7 @@ This is the only entry."""
             1,  # line_number
             1,  # org_level
             reply_text,
-            "Reply at end commit"
+            "Reply at end commit",
         )
 
         # Verify
@@ -555,7 +558,7 @@ This is the only entry."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = nested_org_content.encode('utf-8')
+        mock_contents.decoded_content = nested_org_content.encode("utf-8")
         mock_contents.sha = "mock_sha_structure"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -568,7 +571,7 @@ This is the only entry."""
             1,  # line_number (first entry)
             1,  # org_level
             reply_text,
-            "Third reply commit"
+            "Third reply commit",
         )
 
         # Verify
@@ -582,10 +585,18 @@ This is the only entry."""
         assert reply_count == 3, "Should have 3 replies now"
 
         # Verify all original content is preserved
-        assert "https://t.me/c/1234567890/100" in updated_content, "Original entry preserved"
-        assert "https://t.me/c/1234567890/200" in updated_content, "First reply preserved"
-        assert "https://t.me/c/1234567890/300" in updated_content, "Second reply preserved"
-        assert "https://t.me/c/1234567890/101" in updated_content, "Second entry preserved"
+        assert "https://t.me/c/1234567890/100" in updated_content, (
+            "Original entry preserved"
+        )
+        assert "https://t.me/c/1234567890/200" in updated_content, (
+            "First reply preserved"
+        )
+        assert "https://t.me/c/1234567890/300" in updated_content, (
+            "Second reply preserved"
+        )
+        assert "https://t.me/c/1234567890/101" in updated_content, (
+            "Second entry preserved"
+        )
 
         # Verify new reply is present
         assert "https://t.me/c/1234567890/400" in updated_content, "New reply added"
@@ -618,7 +629,7 @@ This is the only entry."""
         org_api.create_file(
             file_path="pics/telegram/test.png",
             content=file_content,
-            commit_message="Test file upload"
+            commit_message="Test file upload",
         )
 
         # Verify
@@ -658,7 +669,7 @@ This is the only entry."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_contents.sha = "mock_sha_append"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -667,9 +678,7 @@ This is the only entry."""
         # Execute
         new_text = "* New Entry: This is a new entry"
         org_api.append_text_to_file(
-            file_path="test.org",
-            new_text=new_text,
-            commit_message="Append new entry"
+            file_path="test.org", new_text=new_text, commit_message="Append new entry"
         )
 
         # Verify
@@ -684,7 +693,9 @@ This is the only entry."""
         logger.info(f"Updated content:\n{updated_content}")
 
         assert new_text in updated_content, "New text should be in updated content"
-        assert simple_org_content in updated_content, "Original content should be preserved"
+        assert simple_org_content in updated_content, (
+            "Original content should be preserved"
+        )
 
         logger.info("Test PASSED")
 
@@ -710,7 +721,7 @@ This is the only entry."""
 
         # Setup mock
         mock_contents = MagicMock()
-        mock_contents.decoded_content = simple_org_content.encode('utf-8')
+        mock_contents.decoded_content = simple_org_content.encode("utf-8")
         mock_contents.sha = "mock_sha_append_img"
         mock_contents.path = "test.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -723,7 +734,7 @@ This is the only entry."""
             file_path="test.org",
             new_text=new_text,
             commit_message="Append entry with image",
-            image_filename=image_filename
+            image_filename=image_filename,
         )
 
         # Verify
@@ -736,7 +747,11 @@ This is the only entry."""
 
         # Verify text and image reference are present
         assert new_text in updated_content, "New text should be in updated content"
-        assert f"[[file:{image_filename}]]" in updated_content, "Image link should be in updated content"
-        assert "#+attr_html: :width 600px" in updated_content, "Image attributes should be in updated content"
+        assert f"[[file:{image_filename}]]" in updated_content, (
+            "Image link should be in updated content"
+        )
+        assert "#+attr_html: :width 600px" in updated_content, (
+            "Image attributes should be in updated content"
+        )
 
         logger.info("Test PASSED")

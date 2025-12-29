@@ -10,7 +10,7 @@ Tests cover:
 import logging
 import os
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch
 from typing import Any, Dict
 
 import pytest
@@ -37,7 +37,9 @@ class TestPostToGitJournal:
 
         # Mock file contents
         mock_contents = MagicMock()
-        mock_contents.decoded_content = b"* Existing journal entry\nSome existing content"
+        mock_contents.decoded_content = (
+            b"* Existing journal entry\nSome existing content"
+        )
         mock_contents.sha = "mock_sha_123"
         mock_contents.path = "test_journal.org"
         mock_repo.get_contents.return_value = mock_contents
@@ -56,7 +58,9 @@ class TestPostToGitJournal:
         """Create a PostToGitJournal instance with mocked GitHub client."""
         logger.info("Creating PostToGitJournal instance for testing")
 
-        with patch('src.actions.base_post_to_org_file.Github', return_value=mock_github_client):
+        with patch(
+            "src.actions.base_post_to_org_file.Github", return_value=mock_github_client
+        ):
             instance = PostToGitJournal(
                 github_token=test_config["github_token"],
                 repo_name=test_config["github_repo"],
@@ -102,7 +106,9 @@ class TestPostToGitJournal:
 
         # Should have called get_contents to fetch current file
         journal_instance.repo.get_contents.assert_called_once()
-        logger.debug(f"get_contents called with: {journal_instance.repo.get_contents.call_args}")
+        logger.debug(
+            f"get_contents called with: {journal_instance.repo.get_contents.call_args}"
+        )
 
         # Should have called update_file to append new content
         journal_instance.repo.update_file.assert_called_once()
@@ -116,7 +122,9 @@ class TestPostToGitJournal:
         logger.debug(f"Updated content:\n{updated_content}")
 
         # Verify the message text appears in the updated content
-        assert message.text in updated_content, "Message text should be in updated content"
+        assert message.text in updated_content, (
+            "Message text should be in updated content"
+        )
 
         # Verify org-mode entry format
         assert "* Entry:" in updated_content, "Should contain org-mode entry header"
@@ -155,13 +163,13 @@ class TestPostToGitJournal:
 
         # Create a small PNG file (1x1 pixel)
         png_data = (
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
-            b'\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89'
-            b'\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01'
-            b'\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+            b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+            b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
         )
 
-        with open(temp_image_path, 'wb') as f:
+        with open(temp_image_path, "wb") as f:
             f.write(png_data)
 
         logger.info("Temporary image created successfully")
@@ -173,7 +181,9 @@ class TestPostToGitJournal:
 
             # Verify result
             logger.info(f"Result: {result}")
-            assert result is True, "Expected run() to return True for successful posting"
+            assert result is True, (
+                "Expected run() to return True for successful posting"
+            )
 
             # Verify GitHub interactions
             logger.info("Verifying GitHub API interactions")
@@ -194,11 +204,15 @@ class TestPostToGitJournal:
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify the caption appears in the content
-            assert message.caption in updated_content, "Message caption should be in updated content"
+            assert message.caption in updated_content, (
+                "Message caption should be in updated content"
+            )
 
             # Verify org-mode image reference format
             assert "[[file:" in updated_content, "Should contain org-mode file link"
-            assert "#+attr_html:" in updated_content, "Should contain HTML attributes for image"
+            assert "#+attr_html:" in updated_content, (
+                "Should contain HTML attributes for image"
+            )
 
             logger.info("Photo message test PASSED")
 
@@ -238,9 +252,9 @@ class TestPostToGitJournal:
         logger.info(f"Creating temporary test PDF at: {temp_pdf_path}")
 
         # Minimal PDF content
-        pdf_data = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000115 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n210\n%%EOF'
+        pdf_data = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000056 00000 n\n0000000115 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n210\n%%EOF"
 
-        with open(temp_pdf_path, 'wb') as f:
+        with open(temp_pdf_path, "wb") as f:
             f.write(pdf_data)
 
         logger.info("Temporary PDF created successfully")
@@ -252,7 +266,9 @@ class TestPostToGitJournal:
 
             # Verify result
             logger.info(f"Result: {result}")
-            assert result is True, "Expected run() to return True for successful posting"
+            assert result is True, (
+                "Expected run() to return True for successful posting"
+            )
 
             # Verify GitHub interactions
             logger.info("Verifying GitHub API interactions")
@@ -265,7 +281,9 @@ class TestPostToGitJournal:
             # Verify file was uploaded to correct path
             uploaded_path = create_call_args[1]["path"]
             logger.info(f"File uploaded to path: {uploaded_path}")
-            assert uploaded_path.startswith("pics/telegram/"), "File should be uploaded to pics/telegram/"
+            assert uploaded_path.startswith("pics/telegram/"), (
+                "File should be uploaded to pics/telegram/"
+            )
 
             # Should have called update_file to append journal entry
             journal_instance.repo.update_file.assert_called_once()
@@ -278,7 +296,9 @@ class TestPostToGitJournal:
             logger.debug(f"Updated content:\n{updated_content}")
 
             # Verify the caption appears in the content
-            assert message.caption in updated_content, "Message caption should be in updated content"
+            assert message.caption in updated_content, (
+                "Message caption should be in updated content"
+            )
 
             # Verify org-mode file reference format
             assert "[[file:" in updated_content, "Should contain org-mode file link"
@@ -317,7 +337,10 @@ class TestPostToGitJournal:
 
         # Verify timestamp format (YYYY-MM-DD HH:MM)
         import re
-        timestamp_pattern = r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}'
-        assert re.search(timestamp_pattern, org_item), "Should contain timestamp in correct format"
+
+        timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}"
+        assert re.search(timestamp_pattern, org_item), (
+            "Should contain timestamp in correct format"
+        )
 
         logger.info("Org-mode formatting test PASSED")

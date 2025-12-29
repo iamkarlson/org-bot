@@ -13,9 +13,9 @@ class GCPLogger(logging.getLoggerClass()):
             trace_header = request.headers.get("X-Cloud-Trace-Context")
             if trace_header and project:
                 trace = trace_header.split("/")
-                self.global_log_fields[
-                    "logging.googleapis.com/trace"
-                ] = f"projects/{project}/traces/{trace[0]}"
+                self.global_log_fields["logging.googleapis.com/trace"] = (
+                    f"projects/{project}/traces/{trace[0]}"
+                )
 
     def _log_structured(self, severity, msg, args, kwargs):
         if args:

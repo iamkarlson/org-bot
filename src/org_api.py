@@ -44,7 +44,7 @@ class OrgApi:
             for i, line in enumerate(lines):
                 if original_message_link in line:
                     # Determine the org-mode level (count asterisks at the start)
-                    match = re.match(r'^(\*+)\s', line)
+                    match = re.match(r"^(\*+)\s", line)
                     if match:
                         org_level = len(match.group(1))
                         logger.info(
@@ -83,7 +83,7 @@ class OrgApi:
 
         # Search backwards for the first non-reply entry with lower level
         for i in range(start_line - 1, -1, -1):
-            match = re.match(r'^(\*+)\s', lines[i])
+            match = re.match(r"^(\*+)\s", lines[i])
             if match:
                 line_level = len(match.group(1))
                 # Found an entry with lower level
@@ -104,7 +104,7 @@ class OrgApi:
         line_number: int,
         org_level: int,
         reply_text: str,
-        commit_message: str
+        commit_message: str,
     ):
         """
         Inserts a reply as a subheader after the original entry.
@@ -124,7 +124,7 @@ class OrgApi:
 
         # Look for the next line that starts with asterisks of equal or lesser count
         for i in range(line_number + 1, len(lines)):
-            match = re.match(r'^(\*+)\s', lines[i])
+            match = re.match(r"^(\*+)\s", lines[i])
             if match and len(match.group(1)) <= org_level:
                 insert_position = i
                 break
@@ -150,16 +150,11 @@ class OrgApi:
                 "action": "insert_reply",
                 "file": file_path,
                 "line": insert_position,
-                "org_level": org_level + 1
-            }
+                "org_level": org_level + 1,
+            },
         )
 
-    def create_file(
-        self,
-        file_path: str,
-        content: bytes,
-        commit_message: str
-    ):
+    def create_file(self, file_path: str, content: bytes, commit_message: str):
         """
         Creates a new file in the repository.
 
@@ -188,7 +183,7 @@ class OrgApi:
         file_path: str,
         new_text: str,
         commit_message: str,
-        image_filename: Optional[str] = None
+        image_filename: Optional[str] = None,
     ):
         """
         Appends text to an org file in the repository.
