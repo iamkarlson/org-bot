@@ -70,6 +70,10 @@ workspace "Org Bot" "Architecture model for Org Bot system" {
             orgApi = container "Org API" "API for org-mode operations" "Python" {
                 tags "Container"
 
+                initializer = component "Initializer" "Initializes org API client" "Python" {
+                    tags "Component"
+                }
+                
                 entryFinder = component "Entry Finder" "Finds entries in org files by message links" "Python" {
                     tags "Component"
                 }
@@ -161,15 +165,9 @@ workspace "Org Bot" "Architecture model for Org Bot system" {
         main -> utils
         main -> gcp_log "Configure GCP structured logging"
 
-        commands -> baseCommand "Extends"
         commands -> tracing "Uses for logging"
-        commands -> orgApi
-
-        startCommand -> baseCommand "Extends"
-        infoCommand -> baseCommand "Extends"
-        webhookCommand -> baseCommand "Extends"
-        postToJournal -> baseCommand "Extends"
-
+        
+        actions -> tracing "Uses for logging"
 
         orgApi -> config
         auth -> config
@@ -199,13 +197,23 @@ workspace "Org Bot" "Architecture model for Org Bot system" {
         replyInserter -> topLevelFinder
         textAppender -> fileCreator "May create file"
 
+        # Relationships - Component Level (Base Command)
+        commandBase -> initializer
+
         # Relationships - Component Level (Commands)
         startCommand -> commandBase "Extends"
         infoCommand -> commandBase "Extends"
         webhookCommand -> commandBase "Extends"
+
+        # Relationships - Component Level (Actions)
         postToJournal -> commandBase "Extends"
-        postToJournal -> textAppender
-        postToJournal -> replyInserter
+        postToJournal -> textAppender "Appends text to journal.org"
+        
+        postToTodo -> commandBase "Extends"
+        postToTodo -> textAppender "Appends text to todo.org"
+
+        postReply -> commandBase "Extends"
+        postReply -> replyInserter "Inserts reply"
     }
 
     views {
@@ -242,6 +250,10 @@ workspace "Org Bot" "Architecture model for Org Bot system" {
         }
 
         component commands "CommandsComponents" {
+            include *
+        }
+        
+        component actions "ActionsComponents" {
             include *
         }
 
