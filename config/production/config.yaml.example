@@ -12,3 +12,5 @@ JOURNAL_FILE: journal.org
 AUTHORIZED_CHAT_IDS: "888888888"
 IGNORED_CHAT_IDS: "1234567890"
 FORWARD_UNAUTHORIZED_TO: "999999999"
+
+SENTRY_DSN: "https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@xxxxxxxxxxxxxxxxx.ingest.de.sentry.io/7777777777777777"
