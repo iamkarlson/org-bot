@@ -18,7 +18,8 @@ from telegram.error import TimedOut, NetworkError
 
 from .config import (
     BotConfig,
-    GitHubConfig,
+    GitHubSettings,
+    OrgSettings,
     ActionConfig,
     create_commands,
     create_actions,
@@ -44,18 +45,21 @@ class OrgBot:
     def __init__(
         self,
         bot_config: Optional[BotConfig] = None,
-        github_config: Optional[GitHubConfig] = None,
+        github_settings: Optional[GitHubSettings] = None,
+        org_settings: Optional[OrgSettings] = None,
     ):
         """
         Initialize the OrgBot with configurations.
 
         Args:
             bot_config: Bot configuration (loads from env if not provided)
-            github_config: GitHub configuration (loads from env if not provided)
+            github_settings: GitHub settings (loads from env if not provided)
+            org_settings: Org-mode settings (loads from env if not provided)
         """
         # Load configurations
         self.bot_config = bot_config or BotConfig.from_env()
-        self.github_config = github_config or GitHubConfig.from_env()
+        self.github_settings = github_settings or GitHubSettings()
+        self.org_settings = org_settings or OrgSettings()
 
         # Configure HTTP client for bot
         self.request = HTTPXRequest(
@@ -67,7 +71,7 @@ class OrgBot:
 
         # Initialize commands and actions
         self.commands = create_commands(self._get_bot)
-        self.actions = create_actions(self.github_config)
+        self.actions = create_actions(self.github_settings, self.org_settings)
         self.default_action_key = "journal"
 
         logger.info(

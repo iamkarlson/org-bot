@@ -23,7 +23,7 @@ os.environ.setdefault("BOT_TOKEN", "test_bot_token")
 os.environ.setdefault("SENTRY_DSN", "")
 
 from src.bot import OrgBot
-from src.config import BotConfig, GitHubConfig
+from src.config import BotConfig, GitHubSettings, OrgSettings
 
 
 @pytest.fixture
@@ -39,11 +39,18 @@ def test_bot_config():
 
 
 @pytest.fixture
-def test_github_config():
-    """Create a test GitHub configuration."""
-    return GitHubConfig(
+def test_github_settings():
+    """Create a test GitHub settings."""
+    return GitHubSettings(
         token="test_token",
-        repo_name="test/repo",
+        repo="test/repo",
+    )
+
+
+@pytest.fixture
+def test_org_settings():
+    """Create a test Org settings."""
+    return OrgSettings(
         journal_file="journal.org",
         todo_file="todo.org",
     )
@@ -63,25 +70,36 @@ def mock_github():
 
 
 @pytest.fixture
-def org_bot(test_bot_config, test_github_config, mock_github):
+def org_bot(test_bot_config, test_github_settings, test_org_settings, mock_github):
     """Create an OrgBot instance with test configurations."""
     with patch("src.actions.base_post_to_org_file.Github", return_value=mock_github):
-        bot = OrgBot(bot_config=test_bot_config, github_config=test_github_config)
+        bot = OrgBot(
+            bot_config=test_bot_config,
+            github_settings=test_github_settings,
+            org_settings=test_org_settings,
+        )
     return bot
 
 
 class TestOrgBotInitialization:
     """Test OrgBot initialization."""
 
-    def test_init_with_configs(self, test_bot_config, test_github_config, mock_github):
+    def test_init_with_configs(
+        self, test_bot_config, test_github_settings, test_org_settings, mock_github
+    ):
         """Test initialization with provided configs."""
         with patch(
             "src.actions.base_post_to_org_file.Github", return_value=mock_github
         ):
-            bot = OrgBot(bot_config=test_bot_config, github_config=test_github_config)
+            bot = OrgBot(
+                bot_config=test_bot_config,
+                github_settings=test_github_settings,
+                org_settings=test_org_settings,
+            )
 
         assert bot.bot_config == test_bot_config
-        assert bot.github_config == test_github_config
+        assert bot.github_settings == test_github_settings
+        assert bot.org_settings == test_org_settings
         assert len(bot.commands) == 3  # /start, /webhook, /info
         assert len(bot.actions) == 3  # journal, todo, reply
         assert bot.default_action_key == "journal"
@@ -95,7 +113,8 @@ class TestOrgBotInitialization:
             bot = OrgBot()
 
         assert bot.bot_config is not None
-        assert bot.github_config is not None
+        assert bot.github_settings is not None
+        assert bot.org_settings is not None
 
 
 class TestActionDetermination:

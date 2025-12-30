@@ -197,7 +197,7 @@ class TestMessageSequenceIntegration:
         ):
             # Import here to ensure patch is applied
             from src.bot import OrgBot
-            from src.config import BotConfig, GitHubConfig
+            from src.config import BotConfig, GitHubSettings, OrgSettings
 
             # Create test configs
             bot_config = BotConfig(
@@ -207,15 +207,21 @@ class TestMessageSequenceIntegration:
                 forward_unauthorized_to=None,
                 sentry_dsn="",
             )
-            github_config = GitHubConfig(
+            github_settings = GitHubSettings(
                 token="test_token",
-                repo_name="test/repo",
+                repo="test/repo",
+            )
+            org_settings = OrgSettings(
                 journal_file="journal.org",
                 todo_file="todo.org",
             )
 
             # Create OrgBot instance with test configs
-            org_bot = OrgBot(bot_config=bot_config, github_config=github_config)
+            org_bot = OrgBot(
+                bot_config=bot_config,
+                github_settings=github_settings,
+                org_settings=org_settings,
+            )
 
             # Process each message in sequence
             for i, msg_data in enumerate(message_sequence):
@@ -354,7 +360,7 @@ Original entry"""
 
             # Create OrgBot instance
             from src.bot import OrgBot
-            from src.config import BotConfig, GitHubConfig
+            from src.config import BotConfig, GitHubSettings, OrgSettings
 
             bot_config = BotConfig(
                 bot_token="test_bot_token",
@@ -363,14 +369,20 @@ Original entry"""
                 forward_unauthorized_to=None,
                 sentry_dsn="",
             )
-            github_config = GitHubConfig(
+            github_settings = GitHubSettings(
                 token="test_token",
-                repo_name="test/repo",
+                repo="test/repo",
+            )
+            org_settings = OrgSettings(
                 journal_file="journal.org",
                 todo_file="todo.org",
             )
 
-            org_bot = OrgBot(bot_config=bot_config, github_config=github_config)
+            org_bot = OrgBot(
+                bot_config=bot_config,
+                github_settings=github_settings,
+                org_settings=org_settings,
+            )
 
             # Process the reply
             response = await org_bot._handle_action(
