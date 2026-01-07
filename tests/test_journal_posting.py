@@ -313,20 +313,20 @@ class TestPostToGitJournal:
 
     @pytest.mark.unit
     @pytest.mark.journal
-    def test_get_org_item_format(
+    def test_get_new_org_item_format(
         self,
         journal_instance: PostToGitJournal,
         mock_telegram_message_text: Mock,
     ) -> None:
         """
-        Test the _get_org_item method returns properly formatted org-mode entry.
+        Test the _get_new_org_item method returns properly formatted org-mode entry.
         """
         logger.info("=" * 80)
         logger.info("TEST: Verify org-mode item formatting")
         logger.info("=" * 80)
 
         message = mock_telegram_message_text
-        org_item = journal_instance._get_org_item(message)
+        org_item = journal_instance._get_new_org_item(message)
 
         logger.info(f"Generated org item:\n{org_item}")
 

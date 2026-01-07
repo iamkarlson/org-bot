@@ -20,7 +20,7 @@ class PostToTodo(BasePostToGitJournal):
     """
 
     @staticmethod
-    def _get_org_item(message: Message) -> str:
+    def _get_new_org_item(message: Message) -> str:
         """
         In this method, I'm making an message for my org-mode journal.
         It includes title "log entry" and link to the message.

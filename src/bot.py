@@ -11,7 +11,7 @@ This module contains the core OrgBot class that orchestrates:
 
 import logging
 import asyncio
-from typing import Dict, Optional
+from typing import Optional
 from telegram import Bot, Message
 from telegram.request import HTTPXRequest
 from telegram.error import TimedOut, NetworkError
@@ -20,7 +20,6 @@ from .config import (
     BotConfig,
     GitHubSettings,
     OrgSettings,
-    ActionConfig,
     create_commands,
     create_actions,
 )

@@ -21,9 +21,7 @@ class BotConfig:
             int(id) for id in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
         ]
         ignored_ids = [
-            int(id)
-            for id in os.environ.get("IGNORED_CHAT_IDS", "").split(",")
-            if id
+            int(id) for id in os.environ.get("IGNORED_CHAT_IDS", "").split(",") if id
         ]
         forward_to = os.environ.get("FORWARD_UNAUTHORIZED_TO")
 

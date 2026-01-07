@@ -389,20 +389,20 @@ class TestPostToTodo:
 
     @pytest.mark.unit
     @pytest.mark.todo
-    def test_get_org_item_format_todo(
+    def test_get_new_org_item_format_todo(
         self,
         todo_instance: PostToTodo,
         mock_todo_message_text: Mock,
     ) -> None:
         """
-        Test the _get_org_item method returns properly formatted TODO entry.
+        Test the _get_new_org_item method returns properly formatted TODO entry.
         """
         logger.info("=" * 80)
         logger.info("TEST: Verify TODO org-mode item formatting")
         logger.info("=" * 80)
 
         message = mock_todo_message_text
-        org_item = todo_instance._get_org_item(message)
+        org_item = todo_instance._get_new_org_item(message)
 
         logger.info(f"Generated TODO org item:\n{org_item}")
 

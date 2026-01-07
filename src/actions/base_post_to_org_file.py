@@ -56,7 +56,7 @@ class BasePostToGitJournal:
         message_id = message.message_id
         chat_id = message.chat.id
         commit_message = f"Message {message_id} from chat {chat_id}"
-        new_text = self._get_org_item(message)
+        new_text = self._get_new_org_item(message)
         self.org_api.append_text_to_file(
             self.file_path, new_text, commit_message, image_filename=filename
         )

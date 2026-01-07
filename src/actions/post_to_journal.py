@@ -1,5 +1,6 @@
 """
-in this task, I take the message from telegram command, and post it to my journal on github.
+in this action, I take the message from telegram command,
+and post it to my journal in the repo.
 I will use the github api to do this.
 """
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class PostToGitJournal(BasePostToGitJournal):
     @staticmethod
-    def _get_org_item(message: Message) -> str:
+    def _get_new_org_item(message: Message) -> str:
         """
         In this method, I'm making an message for my org-mode journal.
         It includes title "log entry" and link to the message.

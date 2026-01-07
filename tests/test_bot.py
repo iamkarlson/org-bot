@@ -12,7 +12,6 @@ Tests cover:
 import os
 import pytest
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
-from telegram import Message
 
 # Set environment variables before importing src modules
 os.environ.setdefault("GITHUB_TOKEN", "test_token")
@@ -335,7 +334,7 @@ class TestPhotoHandling:
             mock_bot.get_file = AsyncMock(return_value=mock_file)
             mock_get_bot.return_value = mock_bot
 
-            with patch("builtins.open", create=True) as mock_open:
+            with patch("builtins.open", create=True):
                 file_path = await org_bot._save_photo(message)
 
         assert file_path == "/tmp/test_photo_123.jpg"

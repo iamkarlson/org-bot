@@ -328,6 +328,10 @@ class TestMessageSequenceIntegration:
                 todo_file_path="todo.org",
             )
 
+            assert reply_instance is not None, (
+                "PostReplyToEntry instance should be created"
+            )
+
             # First, add an original entry
             original_message = Mock()
             original_message.message_id = 100
