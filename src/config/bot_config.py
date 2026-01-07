@@ -1,34 +1,31 @@
-"""Bot configuration dataclass."""
+"""Bot settings using Pydantic."""
 
-import os
-from dataclasses import dataclass
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-@dataclass
-class BotConfig:
-    """Core bot configuration from environment."""
+class BotSettings(BaseSettings):
+    """Core bot settings from environment."""
 
-    bot_token: str
-    authorized_chat_ids: list[int]
-    ignored_chat_ids: list[int]
-    forward_unauthorized_to: int | None
-    sentry_dsn: str
+    model_config = SettingsConfigDict(
+        env_prefix="BOT_",
+        case_sensitive=False,
+    )
 
+    token: str
+    authorized_chat_ids: list[int] = []
+    ignored_chat_ids: list[int] = []
+    forward_unauthorized_to: int | None = None
+    sentry_dsn: str = ""
+
+    @field_validator("authorized_chat_ids", "ignored_chat_ids", mode="before")
     @classmethod
-    def from_env(cls) -> "BotConfig":
-        """Load configuration from environment variables."""
-        authorized_ids = [
-            int(id) for id in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
-        ]
-        ignored_ids = [
-            int(id) for id in os.environ.get("IGNORED_CHAT_IDS", "").split(",") if id
-        ]
-        forward_to = os.environ.get("FORWARD_UNAUTHORIZED_TO")
-
-        return cls(
-            bot_token=os.environ["BOT_TOKEN"],
-            authorized_chat_ids=authorized_ids,
-            ignored_chat_ids=ignored_ids,
-            forward_unauthorized_to=int(forward_to) if forward_to else None,
-            sentry_dsn=os.environ.get("SENTRY_DSN", ""),
-        )
+    def parse_comma_separated_ids(cls, v):
+        """Parse comma-separated string of IDs into list of integers."""
+        if isinstance(v, str):
+            return [int(id.strip()) for id in v.split(",") if id.strip()]
+        if isinstance(v, int):
+            return [v]
+        if isinstance(v, list):
+            return v
+        return v

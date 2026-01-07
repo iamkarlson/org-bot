@@ -16,20 +16,20 @@ from unittest.mock import Mock, MagicMock, patch, AsyncMock
 # Set environment variables before importing src modules
 os.environ.setdefault("GITHUB_TOKEN", "test_token")
 os.environ.setdefault("GITHUB_REPO", "test/repo")
-os.environ.setdefault("JOURNAL_FILE", "journal.org")
-os.environ.setdefault("AUTHORIZED_CHAT_IDS", "1234567890")
+os.environ.setdefault("ORG_JOURNAL_FILE", "journal.org")
 os.environ.setdefault("BOT_TOKEN", "test_bot_token")
-os.environ.setdefault("SENTRY_DSN", "")
+os.environ.setdefault("BOT_AUTHORIZED_CHAT_IDS", "1234567890")
+os.environ.setdefault("BOT_SENTRY_DSN", "")
 
 from src.bot import OrgBot
-from src.config import BotConfig, GitHubSettings, OrgSettings
+from src.config import BotSettings, GitHubSettings, OrgSettings
 
 
 @pytest.fixture
-def test_bot_config():
-    """Create a test bot configuration."""
-    return BotConfig(
-        bot_token="test_bot_token",
+def test_bot_settings():
+    """Create a test bot settings."""
+    return BotSettings(
+        token="test_bot_token",
         authorized_chat_ids=[1234567890],
         ignored_chat_ids=[9999],
         forward_unauthorized_to=None,
@@ -69,11 +69,11 @@ def mock_github():
 
 
 @pytest.fixture
-def org_bot(test_bot_config, test_github_settings, test_org_settings, mock_github):
+def org_bot(test_bot_settings, test_github_settings, test_org_settings, mock_github):
     """Create an OrgBot instance with test configurations."""
     with patch("src.actions.base_post_to_org_file.Github", return_value=mock_github):
         bot = OrgBot(
-            bot_config=test_bot_config,
+            bot_settings=test_bot_settings,
             github_settings=test_github_settings,
             org_settings=test_org_settings,
         )
@@ -84,19 +84,19 @@ class TestOrgBotInitialization:
     """Test OrgBot initialization."""
 
     def test_init_with_configs(
-        self, test_bot_config, test_github_settings, test_org_settings, mock_github
+        self, test_bot_settings, test_github_settings, test_org_settings, mock_github
     ):
         """Test initialization with provided configs."""
         with patch(
             "src.actions.base_post_to_org_file.Github", return_value=mock_github
         ):
             bot = OrgBot(
-                bot_config=test_bot_config,
+                bot_settings=test_bot_settings,
                 github_settings=test_github_settings,
                 org_settings=test_org_settings,
             )
 
-        assert bot.bot_config == test_bot_config
+        assert bot.bot_settings == test_bot_settings
         assert bot.github_settings == test_github_settings
         assert bot.org_settings == test_org_settings
         assert len(bot.commands) == 3  # /start, /webhook, /info
@@ -111,7 +111,7 @@ class TestOrgBotInitialization:
             # Config will be loaded from environment variables set in conftest or test setup
             bot = OrgBot()
 
-        assert bot.bot_config is not None
+        assert bot.bot_settings is not None
         assert bot.github_settings is not None
         assert bot.org_settings is not None
 
@@ -215,11 +215,9 @@ class TestActionRouting:
     async def test_handle_action_ignored_chat(self, org_bot):
         """Test that ignored chats return None."""
         message = Mock()
-        message.chat_id = 9999  # In ignored_chat_ids
+        message.chat_id = 9999  # In ignored_chat_ids (from test_bot_settings)
 
-        # Patch the module-level ignored_chats in auth.py
-        with patch("src.auth.ignored_chats", [9999]):
-            response = await org_bot._handle_action(message, "Test message", None)
+        response = await org_bot._handle_action(message, "Test message", None)
 
         assert response is None
 

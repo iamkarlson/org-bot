@@ -17,7 +17,7 @@ from telegram.request import HTTPXRequest
 from telegram.error import TimedOut, NetworkError
 
 from .config import (
-    BotConfig,
+    BotSettings,
     GitHubSettings,
     OrgSettings,
     create_commands,
@@ -43,7 +43,7 @@ class OrgBot:
 
     def __init__(
         self,
-        bot_config: Optional[BotConfig] = None,
+        bot_settings: Optional[BotSettings] = None,
         github_settings: Optional[GitHubSettings] = None,
         org_settings: Optional[OrgSettings] = None,
     ):
@@ -51,12 +51,12 @@ class OrgBot:
         Initialize the OrgBot with configurations.
 
         Args:
-            bot_config: Bot configuration (loads from env if not provided)
+            bot_settings: Bot settings (loads from env if not provided)
             github_settings: GitHub settings (loads from env if not provided)
             org_settings: Org-mode settings (loads from env if not provided)
         """
         # Load configurations
-        self.bot_config = bot_config or BotConfig.from_env()
+        self.bot_settings = bot_settings or BotSettings()
         self.github_settings = github_settings or GitHubSettings()
         self.org_settings = org_settings or OrgSettings()
 
@@ -80,7 +80,7 @@ class OrgBot:
 
     def _get_bot(self) -> Bot:
         """Create a fresh bot instance for each request."""
-        return Bot(token=self.bot_config.bot_token, request=self.request)
+        return Bot(token=self.bot_settings.token, request=self.request)
 
     async def handle_update(self, message: Message) -> None:
         """
@@ -90,7 +90,7 @@ class OrgBot:
             message: Incoming Telegram message
         """
         # Check authorization
-        if not await auth_check(message, self._get_bot):
+        if not await auth_check(message, self.bot_settings, self._get_bot):
             await self._send_unauthorized_response(message)
             return
 
@@ -163,7 +163,7 @@ class OrgBot:
             Response text or None if chat is ignored
         """
         # Check if chat should be ignored for non-command messages
-        if ignore_check(message):
+        if ignore_check(message, self.bot_settings):
             logger.info(f"Ignoring message from chat {message.chat_id}")
             return None
 

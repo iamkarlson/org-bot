@@ -197,11 +197,11 @@ class TestMessageSequenceIntegration:
         ):
             # Import here to ensure patch is applied
             from src.bot import OrgBot
-            from src.config import BotConfig, GitHubSettings, OrgSettings
+            from src.config import BotSettings, GitHubSettings, OrgSettings
 
             # Create test configs
-            bot_config = BotConfig(
-                bot_token="test_bot_token",
+            bot_settings = BotSettings(
+                token="test_bot_token",
                 authorized_chat_ids=[1234567890],
                 ignored_chat_ids=[],
                 forward_unauthorized_to=None,
@@ -218,7 +218,7 @@ class TestMessageSequenceIntegration:
 
             # Create OrgBot instance with test configs
             org_bot = OrgBot(
-                bot_config=bot_config,
+                bot_settings=bot_settings,
                 github_settings=github_settings,
                 org_settings=org_settings,
             )
@@ -364,10 +364,10 @@ Original entry"""
 
             # Create OrgBot instance
             from src.bot import OrgBot
-            from src.config import BotConfig, GitHubSettings, OrgSettings
+            from src.config import BotSettings, GitHubSettings, OrgSettings
 
-            bot_config = BotConfig(
-                bot_token="test_bot_token",
+            bot_settings = BotSettings(
+                token="test_bot_token",
                 authorized_chat_ids=[1234567890],
                 ignored_chat_ids=[],
                 forward_unauthorized_to=None,
@@ -383,7 +383,7 @@ Original entry"""
             )
 
             org_bot = OrgBot(
-                bot_config=bot_config,
+                bot_settings=bot_settings,
                 github_settings=github_settings,
                 org_settings=org_settings,
             )
