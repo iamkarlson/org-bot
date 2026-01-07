@@ -2,14 +2,14 @@
 Configuration module for org-bot.
 
 This module provides:
-1. Configuration dataclasses (BotConfig, GitHubConfig, ActionConfig)
+1. Configuration settings (BotSettings, GitHubSettings, OrgSettings, ActionConfig)
 2. Factory functions to create configured instances
 """
 
 from typing import Callable, Dict, Any
 from telegram import Bot
 
-from .bot_config import BotConfig
+from .bot_config import BotSettings
 from .github_settings import GitHubSettings
 from .org_settings import OrgSettings
 from .action_config import ActionConfig
@@ -91,7 +91,7 @@ def create_actions(
 
 
 __all__ = [
-    "BotConfig",
+    "BotSettings",
     "GitHubSettings",
     "OrgSettings",
     "ActionConfig",

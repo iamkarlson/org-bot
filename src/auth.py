@@ -1,39 +1,26 @@
 import logging
-import os
 from telegram import Message
 import sentry_sdk
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .config import BotSettings
 
 
 logger = logging.getLogger(__name__)
 
 
-authorized_chats = [
-    int(authorized_chat)
-    for authorized_chat in os.environ["AUTHORIZED_CHAT_IDS"].split(",")
-]
-
-ignored_chats = [
-    int(ignored_chat)
-    for ignored_chat in os.environ.get("IGNORED_CHAT_IDS", "").split(",")
-    if ignored_chat
-]
-
-# Optional: Forward unauthorized messages to this chat ID
-forward_unauthorized_to = os.environ.get("FORWARD_UNAUTHORIZED_TO")
-if forward_unauthorized_to:
-    forward_unauthorized_to = int(forward_unauthorized_to)
-
-
-async def auth_check(message: Message, bot_getter=None):
+async def auth_check(message: Message, bot_settings: "BotSettings", bot_getter=None):
     """
     Check if message comes from an authorized chat.
     Logs comprehensive information about unauthorized access attempts.
 
     :param message: incoming telegram message
+    :param bot_settings: Bot settings containing authorized chat IDs
     :return: True if authorized, False otherwise
     """
-    logger.debug(f"All authorized chats: {authorized_chats}")
-    if message.chat_id in authorized_chats:
+    logger.debug(f"All authorized chats: {bot_settings.authorized_chat_ids}")
+    if message.chat_id in bot_settings.authorized_chat_ids:
         return True
 
     # Capture comprehensive unauthorized access information
@@ -101,7 +88,7 @@ async def auth_check(message: Message, bot_getter=None):
         )
 
     # Forward unauthorized message if configured
-    if forward_unauthorized_to and bot_getter:
+    if bot_settings.forward_unauthorized_to and bot_getter:
         try:
             bot = bot_getter()
 
@@ -117,16 +104,16 @@ async def auth_check(message: Message, bot_getter=None):
             summary_text += f"Date: {message.date}\n"
 
             # Send summary first
-            await bot.send_message(chat_id=forward_unauthorized_to, text=summary_text)
+            await bot.send_message(chat_id=bot_settings.forward_unauthorized_to, text=summary_text)
 
             # Then forward the original message
             await bot.forward_message(
-                chat_id=forward_unauthorized_to,
+                chat_id=bot_settings.forward_unauthorized_to,
                 from_chat_id=message.chat_id,
                 message_id=message.message_id,
             )
 
-            logger.info(f"Forwarded unauthorized message to {forward_unauthorized_to}")
+            logger.info(f"Forwarded unauthorized message to {bot_settings.forward_unauthorized_to}")
 
         except Exception as e:
             logger.error(f"Failed to forward unauthorized message: {e}")
@@ -134,15 +121,16 @@ async def auth_check(message: Message, bot_getter=None):
     return False
 
 
-def ignore_check(message: Message):
+def ignore_check(message: Message, bot_settings: "BotSettings"):
     """
     Check if message comes from an ignored chat.
 
     :param message: incoming telegram message
+    :param bot_settings: Bot settings containing ignored chat IDs
     :return: True if chat should be ignored, False otherwise
     """
-    logger.debug(f"All ignored chats: {ignored_chats}")
-    if message.chat_id in ignored_chats:
+    logger.debug(f"All ignored chats: {bot_settings.ignored_chat_ids}")
+    if message.chat_id in bot_settings.ignored_chat_ids:
         logger.info(f"Message from ignored chat: {message.chat_id}")
         return True
     return False
