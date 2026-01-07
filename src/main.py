@@ -15,7 +15,7 @@ import sentry_sdk
 from sentry_sdk.integrations.gcp import GcpIntegration
 
 from .bot import OrgBot
-from .config import BotConfig
+from .config import BotSettings
 from .tracing.log import GCPLogger
 
 
@@ -24,7 +24,7 @@ logging.setLoggerClass(GCPLogger)
 logger = logging.getLogger(__name__)
 
 # Initialize Sentry
-bot_config = BotConfig.from_env()
+bot_config = BotSettings()
 sentry_sdk.init(
     dsn=bot_config.sentry_dsn,
     integrations=[GcpIntegration()],

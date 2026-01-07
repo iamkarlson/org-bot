@@ -62,7 +62,6 @@ tasks:
 
   deploy_gcp:
     deps:
-      - switch_gcp_project
       - generate_requirements
     cmds:
       - sh deploy.sh
