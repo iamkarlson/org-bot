@@ -60,14 +60,6 @@ class OrgBot:
         self.github_settings = github_settings or GitHubSettings()
         self.org_settings = org_settings or OrgSettings()
 
-        # Configure HTTP client for bot
-        self.request = HTTPXRequest(
-            pool_timeout=30,
-            connection_pool_size=10,
-            read_timeout=30,
-            write_timeout=30,
-        )
-
         # Initialize commands and actions
         self.commands = create_commands(self._get_bot)
         self.actions = create_actions(self.github_settings, self.org_settings)
@@ -79,8 +71,19 @@ class OrgBot:
         )
 
     def _get_bot(self) -> Bot:
-        """Create a fresh bot instance for each request."""
-        return Bot(token=self.bot_settings.token, request=self.request)
+        """
+        Create a fresh bot instance with a new HTTPXRequest for each request.
+
+        This ensures the httpx client is tied to the current event loop,
+        preventing "Event loop is closed" errors in serverless environments.
+        """
+        request = HTTPXRequest(
+            pool_timeout=30,
+            connection_pool_size=10,
+            read_timeout=30,
+            write_timeout=30,
+        )
+        return Bot(token=self.bot_settings.token, request=request)
 
     async def handle_update(self, message: Message) -> None:
         """
@@ -260,9 +263,6 @@ class OrgBot:
                 logger.error("Failed after 3 timeout attempts")
                 raise
             except NetworkError as e:
-                if "Event loop is closed" in str(e):
-                    logger.info("Event loop closed, request likely completed")
-                    return
                 if attempt < 2:
                     logger.warning(f"Network retry {attempt + 1}/3: {type(e).__name__}")
                     await asyncio.sleep(attempt + 1)
