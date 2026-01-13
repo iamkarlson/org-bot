@@ -6,11 +6,11 @@ TF_VAR_description: "iamkarlson's brain bot"
 
 BOT_TOKEN: 9999999999:AAAAAAAAAAA999aaaaaaaaaaaaaaaaaaaaa
 GITHUB_TOKEN: github_pat_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-WEBHOOK_URL: https://your.gcp.function.url
 GITHUB_REPO: user/repo
-JOURNAL_FILE: journal.org
-AUTHORIZED_CHAT_IDS: "888888888"
-IGNORED_CHAT_IDS: "1234567890"
-FORWARD_UNAUTHORIZED_TO: "999999999"
+ORG_JOURNAL_FILE: journal.org
+ORG_TODO_FILE: todo.org
+BOT_AUTHORIZED_CHAT_IDS: "[888888888]"
+BOT_IGNORED_CHAT_IDS: "[1234567890]"
+BOT_FORWARD_UNAUTHORIZED_TO: "999999999"
 
-SENTRY_DSN: "https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@xxxxxxxxxxxxxxxxx.ingest.de.sentry.io/7777777777777777"
+BOT_SENTRY_DSN: "https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@xxxxxxxxxxxxxxxxx.ingest.de.sentry.io/7777777777777777"
