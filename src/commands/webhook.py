@@ -28,9 +28,9 @@ class WebhookCommand(BaseCommand):
             }
             response = json.dumps(response_data, indent=1).replace("\\", "\\\\")
             return f"""Webhook data
-    
+
     ```
-    
+
 {response}
 
 ```"""
