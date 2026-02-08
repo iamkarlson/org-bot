@@ -131,15 +131,19 @@ class OrgBot:
             extra={"media_group_id": primary_message.media_group_id}
         )
 
-        # Get text from first message with caption
+        # Get text from first message with actual caption/text
+        # (not placeholder from get_text_from_message)
         message_text = ""
         text_message = primary_message
         for msg in messages:
-            text = get_text_from_message(msg)
-            if text:
-                message_text = text
+            if msg.text or msg.caption:
+                message_text = msg.text or msg.caption
                 text_message = msg
                 break
+
+        # If no message had text/caption, use placeholder
+        if not message_text:
+            message_text = get_text_from_message(primary_message)
 
         # Process as action (media groups can't be commands)
         response = await self._handle_action(
