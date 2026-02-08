@@ -32,22 +32,28 @@ class PostReplyToEntry(BasePostToGitJournal):
         super().__init__(github_token, repo_name, file_path, org_api=org_api)
         self.todo_file_path = todo_file_path
 
-    def run(self, message: Message, file_path=None):
+    def run(self, message: Message, file_path=None, file_paths=None):
         """
         Handles a reply message by finding the original entry and adding this as a subheader.
         Falls back to regular journal entry if original message is not found.
 
         :param message: The reply message from Telegram
-        :param file_path: Optional file path for attachments
+        :param file_path: Optional single attachment path (deprecated)
+        :param file_paths: Optional list of attachment paths
         :return: Status of operation
         """
+        if file_path and not file_paths:
+            file_paths = [file_path]
+
+        attachment = file_paths[0] if file_paths else None
+
         # Get the original message that this is replying to
         original_message = message.reply_to_message
         if not original_message:
             # Not a reply, fall back to regular journal entry
             logger.warning("PostReplyToEntry called without reply_to_message")
             return PostToGitJournal(self.token, self.repo_name, self.file_path).run(
-                message, file_path
+                message, attachment
             )
 
         # Build the link to the original message
@@ -85,7 +91,7 @@ class PostReplyToEntry(BasePostToGitJournal):
                 "Original entry not found, falling back to regular journal entry"
             )
             return PostToGitJournal(self.token, self.repo_name, self.file_path).run(
-                message, file_path
+                message, attachment
             )
 
         line_number, org_level = entry_location

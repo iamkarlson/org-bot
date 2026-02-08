@@ -64,6 +64,8 @@ resource "google_cloudfunctions2_function" "bot" {
 
   service_config {
     max_instance_count    = 1
+    max_instance_request_concurrency = 80
+    available_cpu         = "1"
     available_memory      = "256M"
     timeout_seconds       = 60
     ingress_settings      = "ALLOW_ALL"

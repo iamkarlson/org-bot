@@ -235,7 +235,7 @@ class TestMessageSequenceIntegration:
 
                 # Process the message using OrgBot's internal method
                 response = await org_bot._handle_action(
-                    message, message.text, file_path=None
+                    message, message.text, file_paths=None
                 )
 
                 logger.info(f"Response: {response}")
@@ -390,7 +390,7 @@ Original entry"""
 
             # Process the reply
             response = await org_bot._handle_action(
-                reply_message, reply_message.text, file_path=None
+                reply_message, reply_message.text, file_paths=None
             )
 
             logger.info(f"Response from reply: {response}")

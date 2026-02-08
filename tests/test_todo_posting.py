@@ -45,6 +45,34 @@ class TestPostToTodo:
         mock_repo.update_file.return_value = {"commit": {"sha": "new_commit_sha"}}
         mock_repo.create_file.return_value = {"commit": {"sha": "file_commit_sha"}}
 
+        # Mock Git Tree API for atomic commits
+        mock_branch = MagicMock()
+        mock_branch.commit.sha = "base_commit_sha"
+        mock_repo.get_branch.return_value = mock_branch
+
+        mock_blob = MagicMock()
+        mock_blob.sha = "blob_sha_456"
+        mock_repo.create_git_blob.return_value = mock_blob
+
+        mock_base_tree = MagicMock()
+        mock_base_tree.sha = "base_tree_sha"
+        mock_repo.get_git_tree.return_value = mock_base_tree
+
+        mock_new_tree = MagicMock()
+        mock_new_tree.sha = "new_tree_sha"
+        mock_repo.create_git_tree.return_value = mock_new_tree
+
+        mock_parent_commit = MagicMock()
+        mock_parent_commit.sha = "parent_commit_sha"
+        mock_repo.get_git_commit.return_value = mock_parent_commit
+
+        mock_commit = MagicMock()
+        mock_commit.sha = "atomic_commit_sha"
+        mock_repo.create_git_commit.return_value = mock_commit
+
+        mock_ref = MagicMock()
+        mock_repo.get_git_ref.return_value = mock_ref
+
         logger.debug(f"Mock GitHub client configured with repo: {mock_repo}")
         return client
 
@@ -255,7 +283,12 @@ class TestPostToTodo:
         try:
             # Execute the method
             logger.info("Executing todo_instance.run() with TODO photo message")
-            result = todo_instance.run(message=message, file_path=temp_image_path)
+            with patch.object(
+                todo_instance.org_api,
+                "create_atomic_commit",
+                wraps=todo_instance.org_api.create_atomic_commit,
+            ) as atomic_commit:
+                result = todo_instance.run(message=message, file_path=temp_image_path)
 
             # Verify result
             logger.info(f"Result: {result}")
@@ -266,18 +299,17 @@ class TestPostToTodo:
             # Verify GitHub interactions
             logger.info("Verifying GitHub API interactions")
 
-            # Should have called create_file to upload the image
-            todo_instance.repo.create_file.assert_called_once()
-            create_call_args = todo_instance.repo.create_file.call_args
-            logger.debug(f"create_file called with: {create_call_args}")
+            atomic_commit.assert_called_once()
+            file_changes, _commit_message = atomic_commit.call_args.args
 
-            # Should have called update_file to append TODO entry with image
-            todo_instance.repo.update_file.assert_called_once()
-            update_call_args = todo_instance.repo.update_file.call_args
-            logger.debug(f"update_file called with: {update_call_args}")
+            assert len(file_changes) == 2, "Expected photo + todo file update in one commit"
+            paths = {path for path, _ in file_changes}
+            assert any(p.startswith("pics/telegram/") for p in paths)
+            assert todo_instance.file_path in paths
 
-            # Verify the content structure
-            updated_content = update_call_args[1]["content"]
+            updated_content = next(
+                content for path, content in file_changes if path == todo_instance.file_path
+            )
             logger.info(f"Updated content length: {len(updated_content)} chars")
             logger.debug(f"Updated content:\n{updated_content}")
 
@@ -339,7 +371,12 @@ class TestPostToTodo:
         try:
             # Execute the method
             logger.info("Executing todo_instance.run() with TODO document message")
-            result = todo_instance.run(message=message, file_path=temp_pdf_path)
+            with patch.object(
+                todo_instance.org_api,
+                "create_atomic_commit",
+                wraps=todo_instance.org_api.create_atomic_commit,
+            ) as atomic_commit:
+                result = todo_instance.run(message=message, file_path=temp_pdf_path)
 
             # Verify result
             logger.info(f"Result: {result}")
@@ -350,25 +387,18 @@ class TestPostToTodo:
             # Verify GitHub interactions
             logger.info("Verifying GitHub API interactions")
 
-            # Should have called create_file to upload the document
-            todo_instance.repo.create_file.assert_called_once()
-            create_call_args = todo_instance.repo.create_file.call_args
-            logger.debug(f"create_file called with: {create_call_args}")
+            atomic_commit.assert_called_once()
+            file_changes, _commit_message = atomic_commit.call_args.args
 
-            # Verify file was uploaded to correct path
-            uploaded_path = create_call_args[1]["path"]
-            logger.info(f"File uploaded to path: {uploaded_path}")
-            assert uploaded_path.startswith("pics/telegram/"), (
-                "File should be uploaded to pics/telegram/"
+            assert len(file_changes) == 2, "Expected file + todo file update in one commit"
+            paths = {path for path, _ in file_changes}
+            uploaded_paths = [p for p in paths if p.startswith("pics/telegram/")]
+            assert uploaded_paths, "Expected uploaded file under pics/telegram/"
+            assert todo_instance.file_path in paths
+
+            updated_content = next(
+                content for path, content in file_changes if path == todo_instance.file_path
             )
-
-            # Should have called update_file to append TODO entry
-            todo_instance.repo.update_file.assert_called_once()
-            update_call_args = todo_instance.repo.update_file.call_args
-            logger.debug(f"update_file called with: {update_call_args}")
-
-            # Verify the content structure
-            updated_content = update_call_args[1]["content"]
             logger.info(f"Updated content length: {len(updated_content)} chars")
             logger.debug(f"Updated content:\n{updated_content}")
 

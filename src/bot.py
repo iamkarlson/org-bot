@@ -11,7 +11,7 @@ This module contains the core OrgBot class that orchestrates:
 
 import logging
 import asyncio
-from typing import Optional
+from typing import List, Optional
 from telegram import Bot, Message
 from telegram.request import HTTPXRequest
 from telegram.error import TimedOut, NetworkError
@@ -104,6 +104,53 @@ class OrgBot:
         if response:
             await self._send_response(message, response)
 
+    async def handle_media_group(self, messages: List[Message]) -> None:
+        """
+        Handle a media group (album with multiple photos).
+
+        Args:
+            messages: List of messages from same media group
+        """
+        if not messages:
+            logger.warning("Empty media group received")
+            return
+
+        # Use first message for auth and response
+        primary_message = messages[0]
+
+        # Check authorization
+        if not await auth_check(primary_message, self.bot_settings, self._get_bot):
+            await self._send_unauthorized_response(primary_message)
+            return
+
+        # Save all photos
+        file_paths = await self._save_photos(messages)
+
+        logger.info(
+            f"Media group: {len(messages)} messages, {len(file_paths)} photos",
+            extra={"media_group_id": primary_message.media_group_id}
+        )
+
+        # Get text from first message with caption
+        message_text = ""
+        text_message = primary_message
+        for msg in messages:
+            text = get_text_from_message(msg)
+            if text:
+                message_text = text
+                text_message = msg
+                break
+
+        # Process as action (media groups can't be commands)
+        response = await self._handle_action(
+            text_message,
+            message_text,
+            file_paths=file_paths
+        )
+
+        if response:
+            await self._send_response(text_message, response)
+
     async def _process_message(self, message: Message) -> Optional[str]:
         """
         Process a message and return response text.
@@ -125,7 +172,9 @@ class OrgBot:
         if message_text.startswith("/"):
             return await self._handle_command(message, message_text)
         else:
-            return await self._handle_action(message, message_text, temp_file_path)
+            # Pass as list for consistency with media group handling
+            file_paths = [temp_file_path] if temp_file_path else None
+            return await self._handle_action(message, message_text, file_paths)
 
     async def _handle_command(self, message: Message, message_text: str) -> str:
         """
@@ -152,7 +201,7 @@ class OrgBot:
         self,
         message: Message,
         message_text: str,
-        file_path: Optional[str] = None,
+        file_paths: Optional[List[str]] = None,
     ) -> Optional[str]:
         """
         Route message to appropriate action handler.
@@ -160,7 +209,7 @@ class OrgBot:
         Args:
             message: Telegram message
             message_text: Text content of the message
-            file_path: Optional path to attached file
+            file_paths: Optional list of paths to attached files
 
         Returns:
             Response text or None if chat is ignored
@@ -177,7 +226,8 @@ class OrgBot:
         try:
             action_config = self.actions.get(action_key)
             if action_config:
-                action_config.function(message, file_path=file_path)
+                # Call with file_paths (new signature)
+                action_config.function(message, file_paths=file_paths)
                 return action_config.response_message
             else:
                 logger.error(f"Action not found: {action_key}")
@@ -232,6 +282,37 @@ class OrgBot:
 
         logger.info(f"Photo saved to {temp_file_path}")
         return temp_file_path
+
+    async def _save_photos(self, messages: List[Message]) -> List[str]:
+        """
+        Save multiple photos from media group messages.
+
+        Args:
+            messages: List of messages, each may contain photo
+
+        Returns:
+            List of temp file paths
+        """
+        file_paths = []
+
+        for message in messages:
+            if message.photo:
+                # Get highest resolution photo
+                photo_file_id = message.photo[-1].file_id
+                temp_file_path = f"/tmp/{photo_file_id}.jpg"
+
+                bot = self._get_bot()
+                file_obj = await bot.get_file(photo_file_id)
+                file_bytes = await file_obj.download_as_bytearray()
+
+                with open(temp_file_path, "wb") as file:
+                    file.write(file_bytes)
+
+                file_paths.append(temp_file_path)
+                logger.debug(f"Saved photo to {temp_file_path}")
+
+        logger.info(f"Saved {len(file_paths)} photos from media group")
+        return file_paths
 
     async def _send_response(self, message: Message, text: str) -> None:
         """
