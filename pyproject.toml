@@ -12,7 +12,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "functions-framework==3.4.0",
+    "functions-framework==3.10.0",
     "Flask~=2.3.2",
     "python-telegram-bot==22.3",
     "PyGithub==1.59.1",

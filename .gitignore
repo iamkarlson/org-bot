@@ -176,3 +176,4 @@ src/requirements.txt
 .structurizr/
 docs/c4/index/
 docs/c4/logs/
+.tmp/

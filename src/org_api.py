@@ -7,9 +7,12 @@ This class provides methods for:
 - Inserting replies at the correct position in the org hierarchy
 """
 
+import base64
 import logging
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
+
+from github import InputGitTreeElement
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +27,88 @@ class OrgApi:
         :param repo: GitHub repository object with get_contents and update_file methods
         """
         self.repo = repo
+
+    def create_atomic_commit(
+        self,
+        file_changes: List[Tuple[str, Union[str, bytes]]],
+        commit_message: str,
+    ) -> str:
+        """
+        Create a single commit with multiple file changes.
+
+        Uses the GitHub Git Tree API to create an atomic commit containing
+        multiple file changes (both text and binary). This is useful for
+        committing multiple photos + org file update in one transaction.
+
+        Args:
+            file_changes: List of (file_path, content) tuples.
+                         Content can be str (for text files) or bytes (for binary files).
+            commit_message: Git commit message
+
+        Returns:
+            Commit SHA string
+
+        Example:
+            file_changes = [
+                ("pics/telegram/photo1.jpg", photo1_bytes),
+                ("pics/telegram/photo2.jpg", photo2_bytes),
+                ("journal.org", updated_org_content_str)
+            ]
+            sha = org_api.create_atomic_commit(file_changes, "Message 123 from chat 456")
+        """
+        repo = self.repo
+        branch = repo.get_branch("main")
+
+        logger.info(
+            f"Creating atomic commit with {len(file_changes)} file(s)",
+            extra={
+                "action": "atomic_commit",
+                "file_count": len(file_changes),
+                "commit_message": commit_message,
+            },
+        )
+
+        # Create blobs and tree elements for each file
+        tree_elements = []
+        for file_path, content in file_changes:
+            # Convert content to proper format for blob creation
+            if isinstance(content, bytes):
+                # For binary content, encode as base64
+                blob_content = base64.b64encode(content).decode("ascii")
+                blob = repo.create_git_blob(blob_content, "base64")
+            else:
+                # For text content, use as-is
+                blob = repo.create_git_blob(content, "utf-8")
+
+            # Create tree element
+            tree_element = InputGitTreeElement(
+                path=file_path,
+                mode="100644",  # Regular file
+                type="blob",
+                sha=blob.sha,
+            )
+            tree_elements.append(tree_element)
+
+        # Create tree with base
+        base_tree = repo.get_git_tree(sha=branch.commit.sha)
+        new_tree = repo.create_git_tree(tree=tree_elements, base_tree=base_tree)
+
+        # Create commit
+        parent = repo.get_git_commit(branch.commit.sha)
+        commit = repo.create_git_commit(
+            message=commit_message, tree=new_tree, parents=[parent]
+        )
+
+        # Update branch ref
+        ref = repo.get_git_ref("heads/main")
+        ref.edit(sha=commit.sha)
+
+        logger.info(
+            f"Atomic commit created: {commit.sha}",
+            extra={"commit_sha": commit.sha, "files": [fc[0] for fc in file_changes]},
+        )
+
+        return commit.sha
 
     def find_original_entry(
         self, original_message_link: str, file_path: str

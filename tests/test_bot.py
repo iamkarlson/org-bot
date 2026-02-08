@@ -239,7 +239,7 @@ class TestActionRouting:
             response = await org_bot._handle_action(message, "Regular entry", None)
 
         assert response == "Added to journal!"
-        mock_func.assert_called_once_with(message, file_path=None)
+        mock_func.assert_called_once_with(message, file_paths=None)
 
     @pytest.mark.asyncio
     async def test_handle_action_todo(self, org_bot):
@@ -258,7 +258,7 @@ class TestActionRouting:
             response = await org_bot._handle_action(message, "todo write tests", None)
 
         assert response == "Added to todo list!"
-        mock_func.assert_called_once_with(message, file_path=None)
+        mock_func.assert_called_once_with(message, file_paths=None)
 
     @pytest.mark.asyncio
     async def test_handle_action_reply(self, org_bot):
@@ -277,7 +277,7 @@ class TestActionRouting:
             response = await org_bot._handle_action(message, "This is a reply", None)
 
         assert response == "Added reply to entry!"
-        mock_func.assert_called_once_with(message, file_path=None)
+        mock_func.assert_called_once_with(message, file_paths=None)
 
     @pytest.mark.asyncio
     async def test_handle_action_with_file(self, org_bot):
@@ -290,11 +290,11 @@ class TestActionRouting:
             org_bot.actions["journal"], "function", return_value=None
         ) as mock_func:
             response = await org_bot._handle_action(
-                message, "Entry with photo", file_path="/tmp/test.jpg"
+                message, "Entry with photo", file_paths=["/tmp/test.jpg"]
             )
 
         assert response == "Added to journal!"
-        mock_func.assert_called_once_with(message, file_path="/tmp/test.jpg")
+        mock_func.assert_called_once_with(message, file_paths=["/tmp/test.jpg"])
 
     @pytest.mark.asyncio
     async def test_handle_action_error(self, org_bot):
