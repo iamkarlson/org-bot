@@ -5,6 +5,11 @@ terraform {
       version = ">= 4.34.0"
     }
   }
+
+  backend "gcs" {
+    bucket = "org-bot-tf-state"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
