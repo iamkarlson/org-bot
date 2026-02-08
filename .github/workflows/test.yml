@@ -39,10 +39,10 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv package manager
-        run: task install_uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: task sync_deps
+        run: task deps:sync
 
       - name: Display environment information
         run: |
