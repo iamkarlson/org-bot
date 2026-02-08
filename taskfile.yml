@@ -7,99 +7,84 @@ env:
 
 dotenv: ["config/{{.ENV}}/secrets.env"]
 
-vars:
-  TOOLS_DIRECTORY: ".bin"
-
 tasks:
-  default:
-    cmds:
-      - echo "env is activated using pyenv"
-    silent: true
 
-  install_uv:
-    desc: "Install uv package manager"
-    status:
-      - command -v uv
-    cmds:
-      - echo "Installing uv package manager..."
-      - curl -LsSf https://astral.sh/uv/install.sh | sh
-    silent: false
-
-  update_deps:
-    deps:
-      - install_uv
-    desc: "Update all dependencies and regenerate requirements.txt"
-    cmds:
-      - uv sync --upgrade
-      - task: generate_requirements
-    silent: false
-
-  sync_deps:
-    deps:
-      - install_uv
-    desc: "Sync dependencies using uv"
+  deps:sync:
+    desc: Sync dependencies using uv
     cmds:
       - uv sync
-    silent: false
 
-  generate_requirements:
-    deps:
-      - sync_deps
-    desc: "Generate requirements.txt from pyproject.toml for GCP Functions"
+  deps:update:
+    desc: Update all dependencies and regenerate requirements.txt
+    cmds:
+      - uv sync --upgrade
+      - task: deps:export
+
+  deps:export:
+    deps: [deps:sync]
+    desc: Generate requirements.txt from pyproject.toml for GCP Functions
     cmds:
       - uv export --format requirements-txt --no-dev --no-hashes --output-file src/requirements.txt
       - sed -i '/-e \./d' src/requirements.txt
-    silent: false
 
-  switch_gcp_project:
+  gcp:check:
+    desc: Verify the active GCP project matches the deploy target
     cmds:
-      - echo "Using GCP account {{.GCP_ACCOUNT}}"
-      - gcloud config set account {{.GCP_ACCOUNT}}
-      - gcloud auth application-default login
-      - gcloud config set project {{.GCP_PROJECT_NAME}}
-      - gcloud auth application-default set-quota-project {{.GCP_PROJECT_NAME}}
+      - |
+        CURRENT=$(gcloud config get-value project 2>/dev/null)
+        if [ "$CURRENT" != "{{.GCP_PROJECT_NAME}}" ]; then
+          echo "ERROR: Active GCP project is '$CURRENT', but deploy target is '{{.GCP_PROJECT_NAME}}'." >&2
+          echo "Run: gcloud config set project {{.GCP_PROJECT_NAME}}" >&2
+          exit 1
+        fi
+        echo "GCP project OK: $CURRENT"
     silent: true
 
-  deploy_gcp:
-    deps:
-      - generate_requirements
+  deploy:gcp:
+    deps: [deps:export]
+    desc: Deploy using gcloud CLI
+    preconditions:
+      - sh: '[ "$(gcloud config get-value project 2>/dev/null)" = "{{.GCP_PROJECT_NAME}}" ]'
+        msg: "Wrong GCP project. Run: gcloud config set project {{.GCP_PROJECT_NAME}}"
     cmds:
       - sh deploy.sh
 
-  deploy_terraform:
-    deps:
-      - switch_gcp_project
-      - generate_requirements
+  deploy:plan:
+    desc: Run terraform plan without applying
+    preconditions:
+      - sh: '[ "$(gcloud config get-value project 2>/dev/null)" = "{{.GCP_PROJECT_NAME}}" ]'
+        msg: "Wrong GCP project. Run: gcloud config set project {{.GCP_PROJECT_NAME}}"
+    cmds:
+      - |
+        eval $(yq -r 'to_entries[] | "export \(.key)=\(.value)"' config/production/config.yaml)
+        cd terraform
+        terraform init
+        terraform plan
+
+  deploy:terraform:
+    deps: [deps:export]
+    desc: Deploy using terraform (init + plan + apply)
+    preconditions:
+      - sh: '[ "$(gcloud config get-value project 2>/dev/null)" = "{{.GCP_PROJECT_NAME}}" ]'
+        msg: "Wrong GCP project. Run: gcloud config set project {{.GCP_PROJECT_NAME}}"
     cmds:
       - sh deploy_terraform.sh
 
   test:
-    deps:
-      - sync_deps
-    desc: "Run unit tests with verbose logging"
+    deps: [deps:sync]
+    desc: Run unit tests
     cmds:
       - uv run pytest tests/ -v
-    silent: false
 
-  test-quick:
-    deps:
-      - sync_deps
-    desc: "Run tests without submodule checks (faster)"
-    cmds:
-      - uv run pytest tests/ -v
-    silent: false
-
-  test-watch:
-    deps:
-      - sync_deps
-    desc: "Run tests in watch mode (requires pytest-watch)"
+  test:watch:
+    deps: [deps:sync]
+    desc: Run tests in watch mode
     cmds:
       - uv run pytest-watch tests/ -v
-    silent: false
 
   structurizr:
-    desc: "Run Structurizr Lite server for C4 diagrams"
-    dir: "docs/c4"
+    desc: Run Structurizr Lite server for C4 diagrams
+    dir: docs/c4
     cmds:
       - docker compose down
       - docker compose up -d

@@ -1,16 +1,14 @@
 import logging
 from telegram import Message
 import sentry_sdk
-from typing import Optional, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .config import BotSettings
+from .config import BotSettings
 
 
 logger = logging.getLogger(__name__)
 
 
-async def auth_check(message: Message, bot_settings: "BotSettings", bot_getter=None):
+async def auth_check(message: Message, bot_settings: BotSettings, bot_getter=None):
     """
     Check if message comes from an authorized chat.
     Logs comprehensive information about unauthorized access attempts.
