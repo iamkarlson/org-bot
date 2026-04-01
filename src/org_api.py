@@ -190,6 +190,7 @@ class OrgApi:
         org_level: int,
         reply_text: str,
         commit_message: str,
+        file_changes: Optional[List[Tuple[str, bytes]]] = None,
     ):
         """
         Inserts a reply as a subheader after the original entry.
@@ -220,14 +221,20 @@ class OrgApi:
 
         new_content = "\n".join(lines)
 
-        # Update the file in the repository
-        self.repo.update_file(
-            path=contents.path,
-            message=commit_message,
-            content=new_content,
-            sha=contents.sha,
-            branch="main",
-        )
+        if file_changes:
+            # Use atomic commit to include binary files (photos) alongside the org update
+            all_changes = list(file_changes)
+            all_changes.append((file_path, new_content))
+            self.create_atomic_commit(all_changes, commit_message)
+        else:
+            # Text-only reply, use simple file update
+            self.repo.update_file(
+                path=contents.path,
+                message=commit_message,
+                content=new_content,
+                sha=contents.sha,
+                branch="main",
+            )
 
         logger.info(
             f"Inserted reply at line {insert_position} in {file_path}",

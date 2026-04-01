@@ -45,15 +45,13 @@ class PostReplyToEntry(BasePostToGitJournal):
         if file_path and not file_paths:
             file_paths = [file_path]
 
-        attachment = file_paths[0] if file_paths else None
-
         # Get the original message that this is replying to
         original_message = message.reply_to_message
         if not original_message:
             # Not a reply, fall back to regular journal entry
             logger.warning("PostReplyToEntry called without reply_to_message")
             return PostToGitJournal(self.token, self.repo_name, self.file_path).run(
-                message, attachment
+                message, file_paths=file_paths
             )
 
         # Build the link to the original message
@@ -91,7 +89,7 @@ class PostReplyToEntry(BasePostToGitJournal):
                 "Original entry not found, falling back to regular journal entry"
             )
             return PostToGitJournal(self.token, self.repo_name, self.file_path).run(
-                message, attachment
+                message, file_paths=file_paths
             )
 
         line_number, org_level = entry_location
@@ -113,13 +111,34 @@ class PostReplyToEntry(BasePostToGitJournal):
 
         reply_text = f"{asterisks} Reply: [[{message_link}][{now}]]\n{message_text}"
 
+        # Build image references and file changes if photos are attached
+        photo_file_changes = []
+        if file_paths:
+            image_filenames = []
+            for fp in file_paths:
+                with open(fp, "rb") as file:
+                    file_bytes = file.read()
+                    filename = "pics/telegram/" + fp.split("/")[-1]
+                    photo_file_changes.append((filename, file_bytes))
+                    image_filenames.append(filename)
+
+            image_text = "\n".join(
+                [f"#+attr_html: :width 600px\n[[file:{fn}]]" for fn in image_filenames]
+            )
+            reply_text = f"{reply_text}\n{image_text}"
+
         commit_message = f"Reply to message {original_message_id} from chat {chat_id}"
 
         # Insert the reply after the original entry
         # Note: We insert after the found entry (line_number) but use top_org_level
         # to determine where to insert (before next entry at same level as top-level)
         self.org_api.insert_reply_after_entry(
-            file_to_update, top_line_number, top_org_level, reply_text, commit_message
+            file_to_update,
+            top_line_number,
+            top_org_level,
+            reply_text,
+            commit_message,
+            file_changes=photo_file_changes or None,
         )
 
         return True
