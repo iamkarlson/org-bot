@@ -12,18 +12,22 @@ This module contains the core OrgBot class that orchestrates:
 import logging
 import asyncio
 from typing import List, Optional
-from telegram import Bot, Message
+from telegram import Bot, CallbackQuery, InlineQuery, Message
 from telegram.request import HTTPXRequest
-from telegram.error import TimedOut, NetworkError
+from telegram.error import BadRequest, TimedOut, NetworkError
 
 from .config import (
     BotSettings,
     GitHubSettings,
     OrgSettings,
+    StateSettings,
     create_commands,
     create_actions,
 )
 from .auth import auth_check, ignore_check
+from .search import SearchService
+from .search import callbacks as search_callbacks
+from .state_store import StateStore
 from .utils import get_text_from_message
 
 
@@ -46,6 +50,7 @@ class OrgBot:
         bot_settings: Optional[BotSettings] = None,
         github_settings: Optional[GitHubSettings] = None,
         org_settings: Optional[OrgSettings] = None,
+        state_settings: Optional[StateSettings] = None,
     ):
         """
         Initialize the OrgBot with configurations.
@@ -54,20 +59,34 @@ class OrgBot:
             bot_settings: Bot settings (loads from env if not provided)
             github_settings: GitHub settings (loads from env if not provided)
             org_settings: Org-mode settings (loads from env if not provided)
+            state_settings: State bucket settings (loads from env if not provided)
         """
         # Load configurations
         self.bot_settings = bot_settings or BotSettings()
         self.github_settings = github_settings or GitHubSettings()
         self.org_settings = org_settings or OrgSettings()
+        self.state_settings = state_settings or StateSettings()
+
+        # State store + search are optional: without a configured bucket the
+        # bot runs exactly as before (capture only).
+        self.state_store = StateStore(self.state_settings)
+        self.search_service = None
+        if self.state_store.enabled and self.github_settings.token:
+            self.search_service = SearchService(
+                github_token=self.github_settings.token,
+                repo_name=self.github_settings.repo,
+                state_store=self.state_store,
+            )
 
         # Initialize commands and actions
-        self.commands = create_commands(self._get_bot)
+        self.commands = create_commands(self._get_bot, self.search_service)
         self.actions = create_actions(self.github_settings, self.org_settings)
         self.default_action_key = "journal"
 
         logger.info(
             f"OrgBot initialized with {len(self.commands)} commands "
-            f"and {len(self.actions)} actions"
+            f"and {len(self.actions)} actions "
+            f"(search {'enabled' if self.search_service else 'disabled'})"
         )
 
     def _get_bot(self) -> Bot:
@@ -191,8 +210,8 @@ class OrgBot:
         Returns:
             Response text
         """
-        # Extract command (remove bot name if present)
-        command_text = message_text.split("@")[0]
+        # Extract command: first token, bot name stripped ("/search@my_bot foo" -> "/search")
+        command_text = message_text.split()[0].split("@")[0]
 
         # Find and execute command
         command = self.commands.get(command_text)
@@ -265,6 +284,126 @@ class OrgBot:
 
         # Default to journal
         return self.default_action_key
+
+    async def handle_callback_query(self, callback_query: CallbackQuery) -> None:
+        """
+        Handle a button tap on a search results/content message.
+
+        All interaction state comes from the callback payload — nothing is
+        kept between invocations.
+        """
+        bot = self._get_bot()
+
+        # Stop the client spinner immediately; the actual work may take a moment.
+        try:
+            await bot.answer_callback_query(callback_query.id)
+        except BadRequest as e:
+            # Stale callback (Telegram expires them after a while) — nothing to do.
+            logger.info(f"answer_callback_query failed: {e}")
+
+        message = callback_query.message
+        if message is None:
+            logger.warning("Callback query without message, ignoring")
+            return
+        chat_id = message.chat.id
+
+        # Buttons only exist on messages the bot sent into authorized chats,
+        # but check anyway — callback updates bypass the message auth path.
+        if chat_id not in self.bot_settings.authorized_chat_ids:
+            logger.warning(f"Callback from unauthorized chat {chat_id}, ignoring")
+            return
+
+        if self.search_service is None:
+            await bot.send_message(chat_id=chat_id, text="Search is not configured.")
+            return
+
+        data = search_callbacks.decode(callback_query.data or "")
+        if data is None:
+            logger.info("Unrecognized callback data, ignoring")
+            return
+
+        try:
+            corpus = await asyncio.to_thread(self.search_service.ensure_corpus)
+
+            if data.op == search_callbacks.OP_PAGE:
+                text, keyboard = self.search_service.results_response(
+                    corpus, data.query, page=data.page
+                )
+            elif data.op == search_callbacks.OP_OPEN:
+                text, keyboard = self.search_service.open_response(
+                    corpus, data.query, rank=data.rank, chunk=data.chunk
+                )
+            elif data.op == search_callbacks.OP_FILE:
+                text, keyboard = self.search_service.open_by_path_response(
+                    corpus, data.path, chunk=data.chunk
+                )
+            else:
+                return
+
+            # Single-message navigation: every button tap morphs the same
+            # message (results <-> note view <-> chunks) instead of stacking
+            # new messages in the chat.
+            await self._edit_or_send(bot, chat_id, message.message_id, text, keyboard)
+        except Exception:
+            logger.exception("Callback handling failed")
+            await bot.send_message(chat_id=chat_id, text="Search failed.")
+
+    @staticmethod
+    async def _edit_or_send(bot, chat_id, message_id, text, keyboard) -> None:
+        """Edit the navigation message in place; fall back to a new message when
+        Telegram refuses the edit (>48h old message). A tap that produces
+        identical content ("message is not modified") is silently ignored."""
+        try:
+            await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                reply_markup=keyboard,
+            )
+        except BadRequest as e:
+            if "not modified" in str(e).lower():
+                logger.info("edit_message_text skipped: content unchanged")
+                return
+            logger.info(f"edit_message_text failed ({e}), sending new message")
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=keyboard)
+
+    async def handle_inline_query(self, inline_query: InlineQuery) -> None:
+        """
+        Type-ahead suggestions: fires on every keystroke of "@bot <query>".
+
+        Only the authorized user gets results — everyone else sees an empty
+        dropdown (is_personal so Telegram doesn't cross-cache between users).
+        """
+        bot = self._get_bot()
+        user_id = inline_query.from_user.id if inline_query.from_user else None
+
+        # Private-chat ids equal user ids, so the existing authorized list works.
+        if user_id not in self.bot_settings.authorized_chat_ids:
+            logger.info(f"Inline query from unauthorized user {user_id}, empty answer")
+            await bot.answer_inline_query(
+                inline_query.id, results=[], cache_time=300, is_personal=True
+            )
+            return
+
+        query = (inline_query.query or "").strip()
+        if not query or self.search_service is None:
+            await bot.answer_inline_query(
+                inline_query.id, results=[], cache_time=5, is_personal=True
+            )
+            return
+
+        try:
+            # Throttled freshness: per-keystroke GitHub SHA checks are waste.
+            corpus = await asyncio.to_thread(self.search_service.ensure_corpus, 60.0)
+            results = self.search_service.inline_results(corpus, query)
+            await bot.answer_inline_query(
+                inline_query.id, results=results, cache_time=5, is_personal=True
+            )
+        except BadRequest as e:
+            # Stale query id (user kept typing) — expected, not an error.
+            logger.info(f"answer_inline_query skipped: {e}")
+        except Exception:
+            logger.exception("Inline query handling failed")
 
     async def _save_photo(self, message: Message) -> str:
         """

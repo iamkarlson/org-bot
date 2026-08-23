@@ -99,7 +99,7 @@ class TestOrgBotInitialization:
         assert bot.bot_settings == test_bot_settings
         assert bot.github_settings == test_github_settings
         assert bot.org_settings == test_org_settings
-        assert len(bot.commands) == 3  # /start, /webhook, /info
+        assert len(bot.commands) == 5  # /start, /webhook, /info, /search, /open
         assert len(bot.actions) == 3  # journal, todo, reply
         assert bot.default_action_key == "journal"
 

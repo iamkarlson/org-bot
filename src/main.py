@@ -10,6 +10,7 @@ import asyncio
 import random
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import functions_framework.aio
@@ -40,6 +41,49 @@ sentry_sdk.init(
 
 # Create singleton OrgBot instance
 org_bot = OrgBot()
+
+
+# --- Raw update archive + redelivery dedup (best-effort, never blocks capture) ---
+
+
+async def _safe_is_processed(update_id: int) -> bool:
+    """True when this update was already processed. Errors mean "not processed" —
+    availability of capture wins over dedup accuracy."""
+    if not org_bot.state_store.enabled:
+        return False
+    try:
+        return await asyncio.to_thread(org_bot.state_store.is_processed, update_id)
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Dedup check failed for update {update_id}: {e}")
+        return False
+
+
+async def _safe_archive_update(incoming_data: dict, update_id: int) -> None:
+    """Archive the raw update before processing. Failure is logged, not fatal —
+    a flaky bucket must not take capture down with it."""
+    if not org_bot.state_store.enabled:
+        return
+    try:
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        await asyncio.to_thread(
+            org_bot.state_store.archive_update, incoming_data, update_id, date_str
+        )
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Raw archive failed for update {update_id}: {e}")
+
+
+async def _safe_mark_processed(update_id: int) -> None:
+    """Record successful processing. Written after the action: a crash in
+    between means a redelivery reprocesses — rare duplicate over silent loss."""
+    if not org_bot.state_store.enabled:
+        return
+    try:
+        await asyncio.to_thread(org_bot.state_store.mark_processed, update_id)
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.warning(f"Mark processed failed for update {update_id}: {e}")
 
 
 # Media group handling infrastructure
@@ -214,6 +258,30 @@ async def http_entrypoint(request: Request) -> Response:
 
             # Parse Telegram update
             update = Update.de_json(incoming_data, org_bot._get_bot())
+            update_id = update.update_id
+
+            # Type-ahead suggestions fire per keystroke: no archive, no dedup —
+            # queries are ephemeral and answering one twice is harmless.
+            if update.inline_query:
+                await org_bot.handle_inline_query(update.inline_query)
+                return JSONResponse({"statusCode": 200})
+
+            # Telegram redelivers updates whenever the webhook doesn't
+            # answer in time — skip anything already fully processed.
+            if await _safe_is_processed(update_id):
+                logger.info(f"Update {update_id} already processed, skipping redelivery")
+                return JSONResponse({"statusCode": 200})
+
+            # Archive the raw update before any processing: whatever
+            # happens downstream, the original message is never lost.
+            await _safe_archive_update(incoming_data, update_id)
+
+            # Button taps on search results
+            if update.callback_query:
+                await org_bot.handle_callback_query(update.callback_query)
+                await _safe_mark_processed(update_id)
+                return JSONResponse({"statusCode": 200})
+
             message = update.message or update.edited_message
 
             # Process message if present
@@ -241,6 +309,8 @@ async def http_entrypoint(request: Request) -> Response:
                     # Single message (no media group)
                     async with _processing_lock:
                         await org_bot.handle_update(message)
+
+                await _safe_mark_processed(update_id)
 
             return JSONResponse({"statusCode": 200})
 

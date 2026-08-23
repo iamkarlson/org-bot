@@ -1,0 +1,169 @@
+#+title: Note search
+
+Design for the =/search= command: full-text search over the configured org repo, from Telegram, with interactive results.
+
+* Goals
+
+- Find a note while away from the computer: =/search <query>= in Telegram returns ranked hits, each showing a snippet of the matching line. Matching is fuzzy — typos and partial words still find the note.
+- Read the matched part of a note directly in Telegram, or jump to the rendered file on GitHub.
+- Capture paths (journal / todo / reply routing) are untouched — search is a regular slash command, so plain messages keep flowing to the journal exactly as before.
+- Survive flaky infrastructure: incoming Telegram updates are archived raw before processing, and redeliveries of the same update do not produce duplicates.
+- Run at effectively zero cost.
+
+* Non-goals / rejected alternatives
+
+| Alternative | Why rejected |
+|-------------+--------------|
+| Telegram inline mode (=@bot query= → dropdown) | Originally rejected: inline mode exists to share results /into/ chats, and notes are private. *Revised 2026-08-19*: it is also the only type-ahead mechanism the Bot API has, and the sharing concern is solved by auth-gating + command-shaped selection — see the Inline mode section. |
+| Prompted session (=/search= → bot asks → next message is the query) | Requires per-chat pending state. On a cold start the state is lost and the query message silently lands in the journal — corrupts the capture path this feature must not touch. |
+| GitHub code search API as backend | Whole-word matching only, weak tokenization for non-Latin text, 30 req/min, no control over ranking (can't prefer title over body hits). |
+| Fetch-and-grep per cold start | ~1000 blob fetches or a full tarball per cold start; 30s+ latency and API quota burn. |
+| Scheduled CI building the index | Cron every 30–60 min eats most of the free private-repo Actions minutes and runs when nothing changed. Only option with a plausible bill. |
+| Index committed to a git branch/repo | Git as a blob store: unbounded history growth, commit noise. |
+| Firestore per-note documents | No native full-text search, so the bot greps in memory anyway; adds a service without adding search capability. |
+
+* Architecture
+
+#+begin_src mermaid
+sequenceDiagram
+    participant U as User (Telegram)
+    participant F as Cloud Function
+    participant GH as GitHub API
+    participant GCS as GCS state bucket
+
+    U->>F: /search boiler
+    F->>GCS: archive raw update (idempotency check)
+    F->>GH: get HEAD SHA (1 call)
+    alt index stale
+        F->>GH: compare old..HEAD → changed *.org
+        F->>GH: fetch changed blobs
+        F->>GCS: write index.json.gz (new SHA)
+    else index fresh
+        F->>GCS: read index.json.gz (skipped when warm copy matches)
+    end
+    F->>U: ranked hits + inline buttons
+    U->>F: callback: open hit 2
+    F->>U: matched org subtree (from index, no GitHub calls)
+#+end_src
+
+** Components
+
+- *Search command* — new entry in the command registry (=/search=). Empty query returns a usage hint.
+- *Callback handling* — the webhook entrypoint currently processes only =message= / =edited_message=. A new branch handles =update.callback_query= (paging, opening a hit) and always answers the callback query to stop the client spinner.
+- *State bucket* — one dedicated private GCS bucket holding all persistent bot state: the search index, the raw update archive, and processed-update markers.
+- *Command menu* — =/search= registered via =setMyCommands= (alongside existing commands) so clients show it in the command menu.
+
+* Raw update archive and idempotency
+
+Two failure modes this design must absorb: Telegram redelivers an update whenever the webhook doesn't answer 200 in time (flaky infra, cold starts, GitHub hiccups), and a processing crash can lose a message that was never persisted anywhere.
+
+- *Archive first.* Every incoming update is written verbatim to the state bucket as =raw/<date>/<update_id>.json= before any processing. Whatever happens downstream, the original message is never lost and can be replayed.
+- *Dedup marker.* After an update is processed successfully, an empty marker object =processed/<update_id>= is created. On arrival, an update whose marker already exists is acknowledged with 200 and skipped — a redelivery, not new work.
+- *Trade-off, stated honestly:* if the function crashes after performing the action but before writing the marker, a redelivery reprocesses the update (e.g. a duplicated journal append). Marker-after-action prefers rare duplicates over silent loss; the raw archive makes any incident reconstructable.
+- Media groups arrive as multiple updates with distinct =update_id= values; archive and dedup apply per update, the existing buffering logic is unchanged.
+- Archive objects are tiny (1–2 KB each); cost stays in the rounding error (see cost section). A lifecycle rule can expire =raw/= later if it ever matters.
+
+* Index
+
+** Schema
+
+#+begin_src json
+{
+  "version": 1,
+  "commit_sha": "<repo HEAD this index was built from>",
+  "generated_at": "<iso8601>",
+  "notes": [
+    {
+      "path": "path/to/note.org",
+      "title": "Note title (#+title or filename fallback)",
+      "tags": ["tag1", "tag2"],
+      "text": "full plain text of the file"
+    }
+  ]
+}
+#+end_src
+
+Storing full text means opening a hit needs zero GitHub calls — subtree extraction happens against the indexed text. ~2–3 MB of org text compresses to well under 1 MB.
+
+** Refresh (incremental, work proportional to changes)
+
+1. Get the repo HEAD SHA — one API call per search.
+2. =index.commit_sha == HEAD= → index is fresh, done. A warm instance also keeps the parsed index in memory keyed by SHA, so repeat searches cost only the SHA check.
+3. Otherwise =compare(index_sha, HEAD)= → list of changed files; keep =*.org=; fetch only those blobs; update/remove entries; write the new object to GCS stamped with HEAD.
+4. Fallback to a *full rebuild* (git trees walk) when compare can't answer: index SHA no longer in history (force push), diff exceeds compare API limits, or no index object exists yet.
+5. GCS writes use a generation precondition. On conflict another invocation won the race with equivalent content — re-read and continue.
+
+** Bootstrap
+
+=scripts/build_index.py= builds the index from a local clone and uploads it, so the first deploy doesn't pay a ~1000-blob API walk. The server-side full-rebuild path (step 4) is the fallback if the object is ever lost.
+
+* Search behavior
+
+Fuzzy matching over line-sized candidates via *rapidfuzz*, with a relaxed AND→OR query model.
+
+- *Error model*: this is a phone-first feature, so matching targets phone typos — fat fingers, transpositions, partial words (=brianctl= → =brainctl=, =котл= → =котёл=/=котла=). Edit-distance scoring (rapidfuzz =WRatio=/=partial_ratio=) covers exactly that. Terminal-fzf subsequence abbreviations (=bctl= → =brainctl=) are explicitly not supported — different error model, deliberately traded away.
+- *Candidates are lines, not whole files* — fuzzy scores only behave on short strings. Each note contributes its title, its tag string, and its body lines as candidates.
+- *Matching*: case-insensitive (casefold), per whitespace-split term, scored by rapidfuzz =partial_ratio= against each candidate line. Not =WRatio=: its length-ratio scaling caps a short term against a long line at 60 — below any usable cutoff — which made long journal lines unsearchable. =partial_ratio= scores the best window, independent of line length; exact substrings naturally score highest.
+- *Relaxed AND/OR*: first pass requires every term to match somewhere in the note (AND). If AND yields fewer than 3 hits, the query relaxes to OR; OR-only hits rank below AND-complete ones and are marked in the output.
+- *Scoring*: per-term best line score + location bonus — title +15, tags +10, body +0 — summed over terms. Additive bonuses, not multipliers: a bonus prefers titles over body at comparable match quality, while a multiplier lets a weak title match (70×3) crush a perfect body match (100×1). Ties broken by path.
+- *Snippet* = the best-scoring line of the note, trimmed.
+- *Why a library, not a hand-rolled scorer*: rapidfuzz is a maintained C++ extension with manylinux wheels (~2 MB); scanning the ~40K-line corpus takes tens of milliseconds. Alternatives evaluated and rejected: SQLite FTS5 (zero deps, ranking and snippets free, but zero typo tolerance — a misspelled query claims the note doesn't exist), bundled fzf binary (=--filter= gives literal fzf semantics but no transposition typos, plus an exec-bit/pinned-binary deploy hack), tantivy-py (fuzzy terms + Russian stemming, objectively strongest, but a 10–20 MB forklift for a 2.6 MB corpus), whoosh-reloaded (pure-python FTS, but betting on a fork of a project dead since 2016), pfzy/hand-rolled fzy (the wheel this section previously reinvented).
+- Results paged 5 per message: numbered list with title, path, and the snippet. Inline buttons: one per hit, plus =◂ prev= / =next ▸=.
+
+* Opening a hit — single-message navigation
+
+The whole flow lives in ONE message: =/search= sends the results message, and every button tap *edits it in place* — results ↔ note view ↔ chunk pages. No message stacking in the chat.
+
+- The tapped hit resolves to a note by re-running the search from =callback_data= against the current index.
+- The message morphs into the org *subtree of the heading containing the match*; a title/preamble match shows the file from the top.
+- Content is chunked to Telegram's 4096-char limit with =◂= / =▸ more= buttons editing between chunks; =↩ results= morphs the message back to the results page the hit came from (derived as =rank // page_size= — no extra payload). An =open on GitHub= URL button links to the rendered file (=blob/<branch>/<path>=); URL buttons don't consume =callback_data= budget.
+- Edits that Telegram refuses (messages older than 48h) fall back to sending a new message; "message is not modified" taps are ignored.
+- The inline-mode =/open= flow gets the same in-place chunk navigation, minus the back button (no results context).
+
+* Inline mode: type-ahead suggestions
+
+=@botname <query>= shows a live dropdown of matching notes while typing — no send-and-wait round trip. Added 2026-08-19 after revisiting the original rejection: the mechanism was right, the concern was the sharing semantics, and those are contained:
+
+- *Auth gate*: inline queries are answered only for authorized user IDs (private-chat ids equal user ids, so the existing authorized list works). Everyone else gets an empty dropdown, answered =is_personal= so Telegram never cross-caches results between users.
+- *Selection is command-shaped*: picking a suggestion sends =/open <path>= as the user's message. It routes to the =/open= command (note content + GitHub button) and can never leak into journal capture. =/open= is deliberately absent from the command menu but works typed manually.
+- *No archive, no dedup for inline queries*: they fire per keystroke, are ephemeral, and answering one twice is harmless — archiving them would be write spam that also stores every partial query.
+- *Throttled freshness*: inline queries reuse the warm corpus when the last GitHub HEAD check is under 60s old; =/search= still checks every time.
+- *Setup*: inline mode must be enabled once via BotFather (=/setinline=) — the Bot API cannot enable it.
+
+* Interaction state: callback_data only
+
+All interaction state is encoded in the button payload (Telegram limit: 64 bytes). No sessions, nothing survives-or-breaks on cold starts.
+
+#+begin_example
+v1|p|<page>|<query>            page through results
+v1|o|<rank>|<chunk>|<query>    open hit <rank>, content chunk <chunk>
+v1|f|<chunk>|<path>            open note by path (inline-mode /open flow)
+#+end_example
+
+A path too long for the =f= payload just drops the =▸ more= button — the GitHub link carries the rest of the note.
+
+- Overhead is ~12 bytes, leaving ~50 bytes for the UTF-8 query (~25 Cyrillic chars).
+- Queries that don't fit get text-only results with a note to shorten the query — never truncated silently.
+- Accepted limitation: if the index refreshes between the search and a button tap, result ordering can shift and a tap may open a neighboring note. Rare and cheap to retry; not worth spending payload bytes on an index-SHA pin.
+
+* Infrastructure
+
+- New *dedicated state bucket*: uniform bucket-level access, private, same region as the function, no versioning. Separate from the function-source bucket by design — state and deploy artifacts have different lifecycles. Layout: =index/=, =raw/=, =processed/=.
+- Function service account gets =roles/storage.objectAdmin= scoped to this bucket only.
+- New dependencies: =google-cloud-storage=, =rapidfuzz=.
+- Config: bucket name and object paths via pydantic settings with the =STATE_= env prefix (=STATE_BUCKET=, =STATE_SEARCH_INDEX_OBJECT=), consistent with existing settings classes. Terraform injects =STATE_BUCKET= into the function environment automatically.
+
+** Cost
+
+Index storage ~$0.00002/mo; index writes at worst-case refresh cadence ~$0.0015/mo; reads ~$0.0004/mo. Raw archive + markers add 2–3 tiny writes per incoming message (~$0.015/mo at ~100 msgs/day) and ~36 MB/yr of storage. Same-region egress free. Total still rounds to a few cents/mo. Everything else rides existing free tiers (Cloud Functions invocations, GitHub API).
+
+* Privacy
+
+- The index and the raw archive contain full note and message text. The bucket is private; nothing from it is ever committed to any repo or logged.
+- Search handlers log query length and hit counts, not query text, hit titles, or note content — nothing note-derived reaches logs or Sentry.
+- Tests use synthetic org fixtures only.
+
+* Future
+
+- Self-hosted org renderer as the link-out target instead of GitHub's org rendering (separate investigation).
+- The raw archive is the natural seed for a decoupled ingestion pipeline (store first, process downstream) if the bot ever moves that way.

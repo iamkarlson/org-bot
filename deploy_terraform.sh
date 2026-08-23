@@ -38,5 +38,6 @@ BOT_PROJECT=$(terraform output -raw bot_project)
 
 
  # Registering bot in telegram API
- echo "python -m setup_webhook \"$BOT_TOKEN\" \"$HOOK_URL\""
- python -m setup_webhook "$BOT_TOKEN" "$HOOK_URL"
+ echo "python -m setup_webhook command-webhook <token> \"$HOOK_URL\""
+ python -m setup_webhook command-webhook "$BOT_TOKEN" "$HOOK_URL"
+ python -m setup_webhook command-menu "$BOT_TOKEN"

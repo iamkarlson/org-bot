@@ -12,10 +12,11 @@ from telegram import Bot
 from .bot_config import BotSettings
 from .github_settings import GitHubSettings
 from .org_settings import OrgSettings
+from .state_settings import StateSettings
 from .action_config import ActionConfig
 
 # Import commands and actions for factory functions
-from ..commands import StartCommand, WebhookCommand, InfoCommand
+from ..commands import StartCommand, WebhookCommand, InfoCommand, SearchCommand, OpenCommand
 from ..actions import (
     PostToGitJournal,
     PostToTodo,
@@ -23,12 +24,17 @@ from ..actions import (
 )
 
 
-def create_commands(get_bot: Callable[[], Bot]) -> Dict[str, Any]:
+def create_commands(
+    get_bot: Callable[[], Bot],
+    search_service: Any = None,
+) -> Dict[str, Any]:
     """
     Factory function to create command instances.
 
     Args:
         get_bot: Callable that returns a Bot instance
+        search_service: SearchService instance, or None when no state bucket
+                        is configured (search command reports itself disabled)
 
     Returns:
         Dictionary mapping command names to command instances
@@ -37,6 +43,8 @@ def create_commands(get_bot: Callable[[], Bot]) -> Dict[str, Any]:
         "/start": StartCommand(get_bot),
         "/webhook": WebhookCommand(get_bot),
         "/info": InfoCommand(get_bot),
+        "/search": SearchCommand(get_bot, search_service),
+        "/open": OpenCommand(get_bot, search_service),
     }
 
 
@@ -94,6 +102,7 @@ __all__ = [
     "BotSettings",
     "GitHubSettings",
     "OrgSettings",
+    "StateSettings",
     "ActionConfig",
     "create_commands",
     "create_actions",

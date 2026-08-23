@@ -27,6 +27,21 @@ resource "google_storage_bucket" "default" {
   uniform_bucket_level_access = true
 }
 
+# Dedicated state bucket: search index, raw update archive, dedup markers.
+# Separate from the source bucket — state and deploy artifacts have different lifecycles.
+resource "google_storage_bucket" "state" {
+  name                        = "${random_id.default.hex}-org-bot-state"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+}
+
+resource "google_storage_bucket_iam_member" "state_access" {
+  bucket = google_storage_bucket.state.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_cloudfunctions2_function.bot.service_config[0].service_account_email}"
+}
+
 data "archive_file" "default" {
   type        = "zip"
   output_path = "/tmp/function-source.zip"
@@ -74,7 +89,10 @@ resource "google_cloudfunctions2_function" "bot" {
     available_memory      = "256M"
     timeout_seconds       = 60
     ingress_settings      = "ALLOW_ALL"
-    environment_variables = local.config
+    environment_variables = merge(
+      local.config,
+      { "STATE_BUCKET" = google_storage_bucket.state.name }
+    )
   }
 }
 
