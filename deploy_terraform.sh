@@ -37,7 +37,8 @@ BOT_PROJECT=$(terraform output -raw bot_project)
 # gcloud functions add-invoker-policy-binding "$BOT_NAME" --region="$BOT_REGION" --member="allUsers"
 
 
- # Registering bot in telegram API
+ # Registering bot in telegram API. BOT_WEBHOOK_SECRET comes from config.yaml
+ # via the eval above; when set, Telegram signs every webhook request with it.
  echo "python -m setup_webhook command-webhook <token> \"$HOOK_URL\""
- python -m setup_webhook command-webhook "$BOT_TOKEN" "$HOOK_URL"
+ python -m setup_webhook command-webhook "$BOT_TOKEN" "$HOOK_URL" --webhook-secret "${BOT_WEBHOOK_SECRET:-}"
  python -m setup_webhook command-menu "$BOT_TOKEN"

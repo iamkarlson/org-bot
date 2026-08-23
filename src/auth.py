@@ -1,3 +1,4 @@
+import hmac
 import logging
 from telegram import Message
 import sentry_sdk
@@ -6,6 +7,23 @@ from .config import BotSettings
 
 
 logger = logging.getLogger(__name__)
+
+
+def webhook_secret_ok(header_value: str | None, expected: str) -> bool:
+    """Validate Telegram's X-Telegram-Bot-Api-Secret-Token webhook header.
+
+    An empty expected secret disables the check (webhook registered without
+    one). Comparison is constant-time.
+
+    :param header_value: value of the header from the incoming request, if any
+    :param expected: the configured webhook secret
+    :return: True if the request should be processed, False to reject
+    """
+    if not expected:
+        return True
+    if not header_value:
+        return False
+    return hmac.compare_digest(header_value, expected)
 
 
 async def auth_check(message: Message, bot_settings: BotSettings, bot_getter=None):
@@ -17,7 +35,6 @@ async def auth_check(message: Message, bot_settings: BotSettings, bot_getter=Non
     :param bot_settings: Bot settings containing authorized chat IDs
     :return: True if authorized, False otherwise
     """
-    logger.debug(f"All authorized chats: {bot_settings.authorized_chat_ids}")
     if message.chat_id in bot_settings.authorized_chat_ids:
         return True
 
@@ -127,7 +144,6 @@ def ignore_check(message: Message, bot_settings: "BotSettings"):
     :param bot_settings: Bot settings containing ignored chat IDs
     :return: True if chat should be ignored, False otherwise
     """
-    logger.debug(f"All ignored chats: {bot_settings.ignored_chat_ids}")
     if message.chat_id in bot_settings.ignored_chat_ids:
         logger.info(f"Message from ignored chat: {message.chat_id}")
         return True

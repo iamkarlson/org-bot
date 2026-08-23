@@ -17,12 +17,18 @@ BOT_COMMANDS = [
 ]
 
 
-def command_webhook(bot_token: str, webhook_url: str):
+def command_webhook(bot_token: str, webhook_url: str, webhook_secret: str = ""):
+    """Register the webhook. When webhook_secret is set, Telegram sends it in
+    the X-Telegram-Bot-Api-Secret-Token header and the function rejects any
+    request without it — must match BOT_WEBHOOK_SECRET in the deployed config."""
+
     async def _inner_command_webhook():
         bot = Bot(token=bot_token)
         if not webhook_url:
             return "Please provide a webhook url"
-        register_webhook = await bot.set_webhook(webhook_url)
+        register_webhook = await bot.set_webhook(
+            webhook_url, secret_token=webhook_secret or None
+        )
         if register_webhook:
             webhook = await bot.get_webhook_info()
             logger.debug(webhook.to_json())

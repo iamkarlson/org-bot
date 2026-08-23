@@ -21,6 +21,7 @@ from telegram import Update, Message
 import sentry_sdk
 from sentry_sdk.integrations.gcp import GcpIntegration
 
+from .auth import webhook_secret_ok
 from .bot import OrgBot
 from .config import BotSettings
 from .tracing.log import GCPLogger
@@ -37,6 +38,8 @@ sentry_sdk.init(
     integrations=[GcpIntegration()],
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
+    # Stack-frame locals can hold message/note text — keep them out of Sentry.
+    include_local_variables=False,
 )
 
 # Create singleton OrgBot instance
@@ -253,8 +256,16 @@ async def http_entrypoint(request: Request) -> Response:
 
         # Process webhook
         if request.method == "POST":
+            # Only Telegram knows the webhook secret: without this check the
+            # public function URL accepts forged updates from anyone.
+            if not webhook_secret_ok(
+                request.headers.get("X-Telegram-Bot-Api-Secret-Token"),
+                bot_config.webhook_secret,
+            ):
+                logger.warning("Webhook secret mismatch, rejecting request")
+                return JSONResponse({"statusCode": 403}, status_code=403)
+
             incoming_data = await request.json()
-            logger.debug(f"Incoming data: {incoming_data}")
 
             # Parse Telegram update
             update = Update.de_json(incoming_data, org_bot._get_bot())

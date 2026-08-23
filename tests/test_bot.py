@@ -377,3 +377,29 @@ class TestResponseSending:
         mock_send.assert_called_once()
         call_args = mock_send.call_args
         assert "not for you" in call_args[0][1]
+
+
+class TestWebhookSecret:
+    """Webhook secret header validation (X-Telegram-Bot-Api-Secret-Token)."""
+
+    def test_no_secret_configured_allows_any_request(self):
+        from src.auth import webhook_secret_ok
+
+        assert webhook_secret_ok(None, "") is True
+        assert webhook_secret_ok("anything", "") is True
+
+    def test_matching_secret_allows(self):
+        from src.auth import webhook_secret_ok
+
+        assert webhook_secret_ok("s3cret", "s3cret") is True
+
+    def test_missing_header_rejected_when_secret_configured(self):
+        from src.auth import webhook_secret_ok
+
+        assert webhook_secret_ok(None, "s3cret") is False
+        assert webhook_secret_ok("", "s3cret") is False
+
+    def test_wrong_secret_rejected(self):
+        from src.auth import webhook_secret_ok
+
+        assert webhook_secret_ok("wrong", "s3cret") is False

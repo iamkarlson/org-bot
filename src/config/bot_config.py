@@ -18,6 +18,9 @@ class BotSettings(BaseSettings):
     ignored_chat_ids: list[int] = []
     forward_unauthorized_to: int | None = None
     sentry_dsn: str = ""
+    # Telegram webhook secret (X-Telegram-Bot-Api-Secret-Token). Empty
+    # disables the check — register the webhook with the same value.
+    webhook_secret: str = ""
 
     @field_validator("authorized_chat_ids", "ignored_chat_ids", mode="before")
     @classmethod
