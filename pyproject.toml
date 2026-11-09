@@ -22,6 +22,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "google-cloud-storage>=3.13.1",
     "rapidfuzz>=3.14.5",
+    "python-multipart>=0.0.32",
 ]
 
 [project.optional-dependencies]

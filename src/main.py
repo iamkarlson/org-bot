@@ -23,6 +23,7 @@ from sentry_sdk.integrations.gcp import GcpIntegration
 
 from .auth import webhook_secret_ok
 from .bot import OrgBot
+from .pebble import pebble_token_ok
 from .config import BotSettings
 from .tracing.log import GCPLogger
 
@@ -235,6 +236,31 @@ async def _cleanup_stale_buffers() -> None:
             _media_group_buffers.pop(mid, None)
 
 
+async def _handle_pebble(request: Request) -> Response:
+    """Handle a Pebble Index 01 recording webhook.
+
+    Errors return 500 (not 200 like Telegram) so the Pebble app can retry.
+    Transcription text is never logged.
+    """
+    if not pebble_token_ok(request.headers.get("Authorization"), bot_config.pebble_token):
+        logger.warning("Pebble token mismatch, rejecting request")
+        return JSONResponse({"statusCode": 401}, status_code=401)
+
+    try:
+        form = await request.form()
+        transcription = str(form.get("transcription") or "")
+        recorded_at_ms = int(form.get("recordedAt") or time.time() * 1000)
+        async with _processing_lock:
+            kind = await asyncio.to_thread(
+                org_bot.handle_pebble, transcription, recorded_at_ms
+            )
+        return JSONResponse({"statusCode": 200, "added_to": kind})
+    except Exception as e:
+        sentry_sdk.capture_exception(e)
+        logger.exception("Error processing Pebble webhook")
+        return JSONResponse({"statusCode": 500}, status_code=500)
+
+
 @functions_framework.aio.http
 async def http_entrypoint(request: Request) -> Response:
     """
@@ -253,6 +279,10 @@ async def http_entrypoint(request: Request) -> Response:
         # Health check endpoint
         if request.method == "GET":
             return JSONResponse({"statusCode": 200})
+
+        # Pebble ring webhook: multipart form, its own bearer token
+        if request.method == "POST" and request.url.path.rstrip("/").endswith("/pebble"):
+            return await _handle_pebble(request)
 
         # Process webhook
         if request.method == "POST":

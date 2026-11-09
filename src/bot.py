@@ -25,6 +25,7 @@ from .config import (
     create_actions,
 )
 from .auth import auth_check, ignore_check
+from .pebble import pebble_org_entry
 from .search import SearchService
 from .search import callbacks as search_callbacks
 from .state_store import StateStore
@@ -173,6 +174,30 @@ class OrgBot:
 
         if response:
             await self._send_response(text_message, response)
+
+    def handle_pebble(self, transcription: str, recorded_at_ms: int) -> Optional[str]:
+        """
+        Append a Pebble ring recording to the todo or journal file.
+
+        Returns:
+            "todo" / "journal" for the target, or None when nothing was written
+        """
+        entry = pebble_org_entry(transcription, recorded_at_ms)
+        if entry is None:
+            logger.info("Empty Pebble transcription, skipping")
+            return None
+
+        kind, org_text = entry
+        file_path = (
+            self.org_settings.todo_file if kind == "todo" else self.org_settings.journal_file
+        )
+        # The todo action already holds an OrgApi on the same repo: reuse it.
+        org_api = self.actions["todo"].function.__self__.org_api
+        org_api.append_text_to_file(
+            file_path, org_text, f"Pebble ring recording {recorded_at_ms}"
+        )
+        logger.info(f"Pebble recording added to {file_path}", extra={"kind": kind})
+        return kind
 
     async def _process_message(self, message: Message) -> Optional[str]:
         """
