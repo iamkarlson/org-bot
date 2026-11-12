@@ -108,6 +108,7 @@ class TestMediaGroupCommit:
                 repo_name=test_config["github_repo"],
                 file_path=test_config["journal_file"],
             )
+            instance.repo  # bind the mocked client while the patch is active
         return instance
 
     def _create_temp_images(self, count: int) -> List[str]:

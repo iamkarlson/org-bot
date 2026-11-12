@@ -4,6 +4,7 @@ I will use the github api to do this.
 """
 
 import logging
+from functools import cached_property
 
 from github import Github, Auth
 from telegram import Message
@@ -25,14 +26,22 @@ class BasePostToGitJournal:
             # warning in logs that default file path is used
             logger.warning("File path is not provided. Using default file path.")
 
-        self.client = Github(auth=(Auth.Token(self.token)))
-        # Initialize using an access token
+        # The GitHub connection is lazy: a bad token must fail one message,
+        # not the whole function at startup.
+        if org_api is not None:
+            self.org_api = org_api
 
-        # Get the specific repo and file
-        self.repo = self.client.get_repo(self.repo_name)
+    @cached_property
+    def client(self):
+        return Github(auth=Auth.Token(self.token))
 
-        # Use provided org_api or create a new one
-        self.org_api = org_api if org_api is not None else OrgApi(self.repo)
+    @cached_property
+    def repo(self):
+        return self.client.get_repo(self.repo_name)
+
+    @cached_property
+    def org_api(self):
+        return OrgApi(self.repo)
 
     def run(self, message: Message, file_path=None, file_paths=None):
         """

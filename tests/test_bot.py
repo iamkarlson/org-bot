@@ -311,6 +311,24 @@ class TestActionRouting:
 
         assert response == "Failed to add to journal."
 
+    @pytest.mark.asyncio
+    async def test_handle_action_bad_github_token(self, org_bot):
+        """A rejected GitHub token answers with a clear message instead of a crash."""
+        from github import BadCredentialsException
+
+        message = Mock()
+        message.chat_id = 1234567890
+        message.reply_to_message = None
+
+        with patch.object(
+            org_bot.actions["journal"],
+            "function",
+            side_effect=BadCredentialsException(401, {"message": "Bad credentials"}, {}),
+        ):
+            response = await org_bot._handle_action(message, "Test message", None)
+
+        assert response.startswith("GitHub rejected the token")
+
 
 class TestPhotoHandling:
     """Test photo saving functionality."""

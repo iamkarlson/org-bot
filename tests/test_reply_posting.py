@@ -221,6 +221,7 @@ Some other message."""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
         message = mock_reply_message
 
@@ -311,6 +312,7 @@ Some other message."""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
             message = mock_reply_message
 
@@ -377,6 +379,7 @@ Some other message."""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
             message = mock_reply_message
 
@@ -436,6 +439,7 @@ Some other message."""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
             message = mock_non_reply_message
 
@@ -537,6 +541,7 @@ Another entry."""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
             logger.info(
                 f"Replying to message {original_message.message_id} (which is itself a reply)"
@@ -618,6 +623,7 @@ Different content"""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
             # Test 1: Non-reply entry should return itself
             logger.info("Test 1: Non-reply entry")
@@ -672,6 +678,7 @@ Different content"""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
         # Test finding an entry that exists
         original_link = "https://t.me/c/1234567890/100"
@@ -729,6 +736,7 @@ Different content"""
                 file_path=test_config["journal_file"],
                 todo_file_path=test_config["todo_file"],
             )
+            reply_instance.repo  # bind the mocked client while the patch is active
 
         message = mock_reply_message
 

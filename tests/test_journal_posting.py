@@ -94,6 +94,7 @@ class TestPostToGitJournal:
                 repo_name=test_config["github_repo"],
                 file_path=test_config["journal_file"],
             )
+            instance.repo  # bind the mocked client while the patch is active
 
         logger.debug(f"Journal instance created with file_path: {instance.file_path}")
         return instance

@@ -91,6 +91,7 @@ class TestPostToTodo:
                 repo_name=test_config["github_repo"],
                 file_path=test_config["todo_file"],
             )
+            instance.repo  # bind the mocked client while the patch is active
 
         logger.debug(f"TODO instance created with file_path: {instance.file_path}")
         return instance

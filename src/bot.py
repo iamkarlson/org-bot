@@ -15,6 +15,7 @@ from typing import List, Optional
 from telegram import Bot, CallbackQuery, InlineQuery, Message
 from telegram.request import HTTPXRequest
 from telegram.error import BadRequest, TimedOut, NetworkError
+from github import BadCredentialsException
 
 from .config import (
     BotSettings,
@@ -280,6 +281,9 @@ class OrgBot:
             else:
                 logger.error(f"Action not found: {action_key}")
                 return "Failed to process message."
+        except BadCredentialsException:
+            logger.error("GitHub rejected the token", exc_info=True)
+            return "GitHub rejected the token. Nothing saved. Fix GITHUB_TOKEN and redeploy."
         except Exception as e:
             logger.error(f"Action execution failed: {e}", exc_info=True)
             return "Failed to add to journal."
