@@ -523,6 +523,18 @@ class OrgBot:
                 logger.error(f"Failed after 3 network attempts: {type(e).__name__}")
                 raise
 
+    async def notify_owner(self, text: str) -> None:
+        """DM the first authorized chat. Used when a non-chat path (ring) fails."""
+        if not self.bot_settings.authorized_chat_ids:
+            logger.warning("No authorized chat id, cannot notify owner")
+            return
+        try:
+            await self._get_bot().send_message(
+                chat_id=self.bot_settings.authorized_chat_ids[0], text=text
+            )
+        except Exception:
+            logger.exception("Owner notification failed")
+
     async def _send_unauthorized_response(self, message: Message) -> None:
         """Send response to unauthorized user."""
         await self._send_response(

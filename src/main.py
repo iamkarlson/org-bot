@@ -258,6 +258,11 @@ async def _handle_pebble(request: Request) -> Response:
     except Exception as e:
         sentry_sdk.capture_exception(e)
         logger.exception("Error processing Pebble webhook")
+        # No chat to answer: tell the owner directly. Never include the text.
+        await org_bot.notify_owner(
+            f"Pebble ring recording NOT saved: {type(e).__name__}. "
+            "Check GITHUB_TOKEN and the function logs."
+        )
         return JSONResponse({"statusCode": 500}, status_code=500)
 
 

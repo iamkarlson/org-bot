@@ -1,7 +1,7 @@
 """Tests for the Pebble Index 01 ring webhook: hotword routing, token check, bot write."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -97,3 +97,13 @@ def test_handle_pebble_writes_to_right_file(org_bot, transcription, kind, file_p
 def test_handle_pebble_skips_empty(org_bot):
     assert org_bot.handle_pebble("", RECORDED_AT) is None
     org_bot.actions["todo"].function.__self__.org_api.append_text_to_file.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_owner_sends_dm(org_bot):
+    org_bot.bot_settings.authorized_chat_ids = [42]
+    fake_bot = MagicMock()
+    fake_bot.send_message = AsyncMock()
+    with patch.object(org_bot, "_get_bot", return_value=fake_bot):
+        await org_bot.notify_owner("boom")
+    fake_bot.send_message.assert_awaited_once_with(chat_id=42, text="boom")
